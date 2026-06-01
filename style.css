@@ -603,12 +603,7 @@ button:focus-visible,
 }
 
 .stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: transparent;
-    transition: background 0.18s ease;
+    display: none;
 }
 
 .stat-card:hover {
@@ -616,12 +611,8 @@ button:focus-visible,
     box-shadow: var(--shadow-hover);
 }
 
-.stat-card.clickable:hover::before {
-    background: var(--accent);
-}
-
 .stat-card.clickable:hover {
-    border-color: var(--accent);
+    transform: none;
 }
 
 .stat-card.clickable:focus-visible {
