@@ -606,7 +606,7 @@ button:focus-visible,
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
-    height: 3px;
+    height: 2px;
     background: transparent;
     transition: background 0.18s ease;
 }
