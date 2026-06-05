@@ -18,8 +18,8 @@ const I18n = (() => {
   const dict = {
     en: {
       /* App */
-      "app.title":        "Bookmark Manager",
-      "app.name":         "Bookmark Manager",
+      "app.title":        "Bookmark Manager — Organize Your Browser Bookmarks",
+      "app.name":         "Bookmark Manager — Organize Your Browser Bookmarks",
 
       /* Actions */
       "action.import":       "Import",
@@ -133,8 +133,8 @@ const I18n = (() => {
 
     id: {
       /* App */
-      "app.title":        "Bookmark Manager",
-      "app.name":         "Bookmark Manager",
+      "app.title":        "Pengelola Bookmark — Mengatur Bookmark Browser Anda",
+      "app.name":         "Pengelola Bookmark — Mengatur Bookmark Browser Anda",
 
       /* Actions */
       "action.import":       "Impor",
