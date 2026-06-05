@@ -1,308 +1,278 @@
 /*
 =========================================
-storage.js
-Bookmark Manager
-IndexedDB Wrapper
+  storage.js — Bookmark Manager
+  IndexedDB wrapper
+  Stores: bookmarks, meta (theme, lang,
+  folderTree)
 =========================================
 */
 
+"use strict";
+
 const StorageManager = (() => {
 
-    const DB_NAME    = "BookmarkManagerDB";
-    const DB_VERSION = 1;
-    const STORE_BOOKMARKS = "bookmarks";
-    const STORE_META      = "meta";
+  const DB_NAME         = "BookmarkManagerDB";
+  const DB_VERSION      = 1;
+  const STORE_BOOKMARKS = "bookmarks";
+  const STORE_META      = "meta";
 
-    let db = null;
+  let db          = null;
+  let initPromise = null;
 
-    /* =========================================
-       OPEN DATABASE
-    ========================================= */
+  /* =========================================
+     OPEN / UPGRADE DATABASE
+  ========================================= */
 
-    async function init() {
+  function init() {
+    if (db)          return Promise.resolve(db);
+    if (initPromise) return initPromise;
 
-        if (db) return db;
+    initPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        return new Promise((resolve, reject) => {
+      request.onerror = () => {
+        initPromise = null;
+        reject(request.error);
+      };
 
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onsuccess = () => {
+        db = request.result;
 
-            request.onerror = () => reject(request.error);
-
-            request.onsuccess = () => {
-                db = request.result;
-                db.onversionchange = () => { db.close(); db = null; };
-                resolve(db);
-            };
-
-            request.onupgradeneeded = event => {
-
-                const database = event.target.result;
-
-                if (!database.objectStoreNames.contains(STORE_BOOKMARKS)) {
-
-                    const bookmarkStore = database.createObjectStore(
-                        STORE_BOOKMARKS, { keyPath: "id" }
-                    );
-
-                    bookmarkStore.createIndex("title",  "title",  { unique: false });
-                    bookmarkStore.createIndex("url",    "url",    { unique: false });
-                    bookmarkStore.createIndex("folder", "folder", { unique: false });
-                    bookmarkStore.createIndex("path",   "path",   { unique: false });
-                }
-
-                if (!database.objectStoreNames.contains(STORE_META)) {
-                    database.createObjectStore(STORE_META, { keyPath: "key" });
-                }
-            };
-        });
-    }
-
-    /* =========================================
-       HELPERS
-    ========================================= */
-
-    function ensureDB() {
-        if (!db) throw new Error("Database not initialized");
-    }
-
-    function transactionPromise(transaction) {
-        return new Promise((resolve, reject) => {
-            transaction.oncomplete = () => resolve(true);
-            transaction.onerror   = () => reject(transaction.error);
-            transaction.onabort   = () => reject(transaction.error || new Error("Transaction aborted"));
-        });
-    }
-
-    function requestToPromise(request) {
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => resolve(request.result);
-            request.onerror   = () => reject(request.error);
-        });
-    }
-
-    /* =========================================
-       SAVE BOOKMARKS
-    ========================================= */
-
-    async function saveBookmarks(bookmarks) {
-
-        ensureDB();
-
-        if (!Array.isArray(bookmarks)) {
-            throw new TypeError("Bookmarks must be array");
-        }
-
-        const transaction = db.transaction(STORE_BOOKMARKS, "readwrite");
-        const store = transaction.objectStore(STORE_BOOKMARKS);
-
-        await requestToPromise(store.clear());
-
-        for (const bookmark of bookmarks) {
-            validateBookmark(bookmark);
-            store.put(bookmark);
-        }
-
-        await transactionPromise(transaction);
-        return true;
-    }
-
-    /* =========================================
-       LOAD BOOKMARKS
-    ========================================= */
-
-    async function loadBookmarks() {
-
-        ensureDB();
-
-        const transaction = db.transaction(STORE_BOOKMARKS, "readonly");
-        const store = transaction.objectStore(STORE_BOOKMARKS);
-        return requestToPromise(store.getAll());
-    }
-
-    /* =========================================
-       META
-    ========================================= */
-
-    async function setMeta(key, value) {
-
-        ensureDB();
-
-        const transaction = db.transaction(STORE_META, "readwrite");
-        const store = transaction.objectStore(STORE_META);
-
-        await requestToPromise(store.put({ key, value }));
-        await transactionPromise(transaction);
-        return true;
-    }
-
-    async function getMeta(key) {
-
-        ensureDB();
-
-        const transaction = db.transaction(STORE_META, "readonly");
-        const store = transaction.objectStore(STORE_META);
-        const result = await requestToPromise(store.get(key));
-        return result ? result.value : null;
-    }
-
-    async function removeMeta(key) {
-
-        ensureDB();
-
-        const transaction = db.transaction(STORE_META, "readwrite");
-        const store = transaction.objectStore(STORE_META);
-
-        await requestToPromise(store.delete(key));
-        await transactionPromise(transaction);
-        return true;
-    }
-
-    /* =========================================
-       CLEAR
-    ========================================= */
-
-    async function clearBookmarks() {
-
-        ensureDB();
-
-        const transaction = db.transaction(STORE_BOOKMARKS, "readwrite");
-        const store = transaction.objectStore(STORE_BOOKMARKS);
-
-        await requestToPromise(store.clear());
-        await transactionPromise(transaction);
-        return true;
-    }
-
-    async function clearMeta() {
-
-        ensureDB();
-
-        const transaction = db.transaction(STORE_META, "readwrite");
-        const store = transaction.objectStore(STORE_META);
-
-        await requestToPromise(store.clear());
-        await transactionPromise(transaction);
-        return true;
-    }
-
-    /* =========================================
-       COUNT
-    ========================================= */
-
-    async function countBookmarks() {
-
-        ensureDB();
-
-        const transaction = db.transaction(STORE_BOOKMARKS, "readonly");
-        const store = transaction.objectStore(STORE_BOOKMARKS);
-        return requestToPromise(store.count());
-    }
-
-    async function hasBookmarks() {
-        return (await countBookmarks()) > 0;
-    }
-
-    /* =========================================
-       EXPORT
-    ========================================= */
-
-    async function exportData() {
-        return {
-            exportedAt: new Date().toISOString(),
-            bookmarks:  await loadBookmarks(),
-            folderTree: await getMeta("folderTree"),
-            theme:      await getMeta("theme")
+        db.onversionchange = () => {
+          db.close();
+          db          = null;
+          initPromise = null;
         };
-    }
 
-    /* =========================================
-       IMPORT
-    ========================================= */
+        db.onerror = e => {
+          console.error("[StorageManager] db error:", e.target.error);
+        };
 
-    async function importData(data) {
+        resolve(db);
+      };
 
-        if (!data || typeof data !== "object") {
-            throw new Error("Invalid import data");
+      request.onupgradeneeded = ({ target }) => {
+        const database = target.result;
+
+        if (!database.objectStoreNames.contains(STORE_BOOKMARKS)) {
+          const store = database.createObjectStore(STORE_BOOKMARKS, { keyPath: "id" });
+          store.createIndex("title",  "title",  { unique: false });
+          store.createIndex("url",    "url",    { unique: false });
+          store.createIndex("folder", "folder", { unique: false });
+          store.createIndex("path",   "path",   { unique: false });
         }
 
-        if (!Array.isArray(data.bookmarks)) {
-            throw new Error("Invalid bookmark list");
+        if (!database.objectStoreNames.contains(STORE_META)) {
+          database.createObjectStore(STORE_META, { keyPath: "key" });
         }
+      };
+    });
 
-        data.bookmarks.forEach(validateBookmark);
-        await saveBookmarks(data.bookmarks);
+    return initPromise;
+  }
 
-        if (data.folderTree) {
-            await setMeta("folderTree", data.folderTree);
-        }
+  /* =========================================
+     INTERNAL HELPERS
+  ========================================= */
 
-        if (data.theme === "light" || data.theme === "dark") {
-            await setMeta("theme", data.theme);
-        }
+  function _ensureDB() {
+    if (!db) throw new Error("[StorageManager] Not initialized. Call init() first.");
+  }
 
-        return true;
-    }
+  function _txDone(tx) {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve(true);
+      tx.onerror    = () => reject(tx.error);
+      tx.onabort    = () => reject(tx.error ?? new Error("Transaction aborted"));
+    });
+  }
 
-    /* =========================================
-       DESTROY
-    ========================================= */
+  function _reqResult(req) {
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error);
+    });
+  }
 
-    async function destroyDatabase() {
+  function _validateBookmark(b) {
+    if (!b || typeof b !== "object")
+      throw new TypeError("Bookmark must be an object");
+    if (typeof b.id !== "string" || !b.id.trim())
+      throw new TypeError("Bookmark.id must be a non-empty string");
+    if (typeof b.title !== "string")
+      throw new TypeError("Bookmark.title must be a string");
+    if (typeof b.url !== "string" || !b.url.trim())
+      throw new TypeError("Bookmark.url must be a non-empty string");
+  }
 
-        if (db) { db.close(); db = null; }
+  /* =========================================
+     BOOKMARKS
+  ========================================= */
 
-        return new Promise((resolve, reject) => {
+  async function saveBookmarks(bookmarks) {
+    _ensureDB();
+    if (!Array.isArray(bookmarks)) throw new TypeError("Expected an array");
+    bookmarks.forEach(_validateBookmark);
 
-            const request = indexedDB.deleteDatabase(DB_NAME);
+    const tx    = db.transaction(STORE_BOOKMARKS, "readwrite");
+    const store = tx.objectStore(STORE_BOOKMARKS);
+    store.clear();
+    bookmarks.forEach(b => store.put(b));
+    await _txDone(tx);
+    return true;
+  }
 
-            request.onsuccess  = () => resolve(true);
-            request.onerror    = () => reject(request.error);
-            request.onblocked  = () => reject(new Error("Database delete blocked"));
-        });
-    }
+  async function loadBookmarks() {
+    _ensureDB();
+    const tx = db.transaction(STORE_BOOKMARKS, "readonly");
+    return _reqResult(tx.objectStore(STORE_BOOKMARKS).getAll());
+  }
 
-    /* =========================================
-       VALIDATION
-    ========================================= */
+  async function addBookmark(bookmark) {
+    _ensureDB();
+    _validateBookmark(bookmark);
+    const tx = db.transaction(STORE_BOOKMARKS, "readwrite");
+    tx.objectStore(STORE_BOOKMARKS).put(bookmark);
+    await _txDone(tx);
+    return true;
+  }
 
-    function validateBookmark(bookmark) {
+  async function updateBookmark(bookmark) {
+    _ensureDB();
+    _validateBookmark(bookmark);
+    const tx = db.transaction(STORE_BOOKMARKS, "readwrite");
+    tx.objectStore(STORE_BOOKMARKS).put(bookmark);
+    await _txDone(tx);
+    return true;
+  }
 
-        if (!bookmark || typeof bookmark !== "object") {
-            throw new Error("Invalid bookmark");
-        }
+  async function deleteBookmark(id) {
+    _ensureDB();
+    if (!id) throw new TypeError("id is required");
+    const tx = db.transaction(STORE_BOOKMARKS, "readwrite");
+    tx.objectStore(STORE_BOOKMARKS).delete(id);
+    await _txDone(tx);
+    return true;
+  }
 
-        if (typeof bookmark.id !== "string") {
-            throw new Error("Bookmark id invalid");
-        }
+  async function clearBookmarks() {
+    _ensureDB();
+    const tx = db.transaction(STORE_BOOKMARKS, "readwrite");
+    tx.objectStore(STORE_BOOKMARKS).clear();
+    await _txDone(tx);
+    return true;
+  }
 
-        if (typeof bookmark.title !== "string") {
-            throw new Error("Bookmark title invalid");
-        }
+  async function countBookmarks() {
+    _ensureDB();
+    const tx = db.transaction(STORE_BOOKMARKS, "readonly");
+    return _reqResult(tx.objectStore(STORE_BOOKMARKS).count());
+  }
 
-        if (typeof bookmark.url !== "string") {
-            throw new Error("Bookmark url invalid");
-        }
-    }
+  async function hasBookmarks() {
+    return (await countBookmarks()) > 0;
+  }
 
-    /* =========================================
-       API
-    ========================================= */
+  /* =========================================
+     META  (theme, lang, folderTree, …)
+  ========================================= */
 
+  async function setMeta(key, value) {
+    _ensureDB();
+    const tx = db.transaction(STORE_META, "readwrite");
+    tx.objectStore(STORE_META).put({ key, value });
+    await _txDone(tx);
+    return true;
+  }
+
+  async function getMeta(key) {
+    _ensureDB();
+    const tx     = db.transaction(STORE_META, "readonly");
+    const result = await _reqResult(tx.objectStore(STORE_META).get(key));
+    return result ? result.value : null;
+  }
+
+  async function removeMeta(key) {
+    _ensureDB();
+    const tx = db.transaction(STORE_META, "readwrite");
+    tx.objectStore(STORE_META).delete(key);
+    await _txDone(tx);
+    return true;
+  }
+
+  async function clearMeta() {
+    _ensureDB();
+    const tx = db.transaction(STORE_META, "readwrite");
+    tx.objectStore(STORE_META).clear();
+    await _txDone(tx);
+    return true;
+  }
+
+  /* =========================================
+     EXPORT / IMPORT
+  ========================================= */
+
+  async function exportData() {
     return {
-        init,
-        saveBookmarks,
-        loadBookmarks,
-        setMeta,
-        getMeta,
-        removeMeta,
-        clearBookmarks,
-        clearMeta,
-        countBookmarks,
-        hasBookmarks,
-        exportData,
-        importData,
-        destroyDatabase
+      exportedAt: new Date().toISOString(),
+      version:    1,
+      bookmarks:  await loadBookmarks(),
+      folderTree: await getMeta("folderTree"),
+      theme:      await getMeta("theme"),
+      lang:       await getMeta("lang"),
     };
+  }
+
+  async function importData(data) {
+    if (!data || typeof data !== "object") throw new Error("Invalid import data");
+    if (!Array.isArray(data.bookmarks))    throw new Error("Invalid bookmark list");
+
+    data.bookmarks.forEach(_validateBookmark);
+    await saveBookmarks(data.bookmarks);
+
+    if (data.folderTree) await setMeta("folderTree", data.folderTree);
+    if (data.theme === "light" || data.theme === "dark") await setMeta("theme", data.theme);
+    if (data.lang) await setMeta("lang", data.lang);
+
+    return true;
+  }
+
+  /* =========================================
+     DESTROY
+  ========================================= */
+
+  function destroyDatabase() {
+    if (db) { db.close(); db = null; initPromise = null; }
+
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve(true);
+      req.onerror   = () => reject(req.error);
+      req.onblocked = () => reject(new Error("Deletion blocked by open connection"));
+    });
+  }
+
+  /* =========================================
+     PUBLIC API
+  ========================================= */
+
+  return {
+    init,
+    saveBookmarks,
+    loadBookmarks,
+    addBookmark,
+    updateBookmark,
+    deleteBookmark,
+    clearBookmarks,
+    countBookmarks,
+    hasBookmarks,
+    setMeta,
+    getMeta,
+    removeMeta,
+    clearMeta,
+    exportData,
+    importData,
+    destroyDatabase,
+  };
 
 })();

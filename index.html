@@ -1,225 +1,554 @@
-<!-- 
-=========================================
-index.html
-Bookmark Manager
-=========================================
- -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bookmark Manager</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Bookmark Manager — Organize, search, and manage your browser bookmarks">
+  <title>Bookmark Manager — Organize Your Browser Bookmarks</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- TOPBAR -->
-    <header class="topbar">
-        <div class="topbar-left">
-            <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle sidebar" aria-expanded="false">
-                <span class="hamburger-icon">
-                    <span></span><span></span><span></span>
-                </span>
-            </button>
-            <div class="brand">
-                <span class="brand-icon">📚</span>
-                <h1>Bookmark Manager</h1>
-            </div>
+  <!-- ===================== TOPBAR ===================== -->
+  <header class="topbar" role="banner">
+
+    <div class="topbar-left">
+      <!-- Mobile sidebar toggle -->
+      <button
+        id="mobileMenuBtn"
+        class="btn-icon-only mobile-menu-btn"
+        aria-label="Toggle sidebar"
+        aria-expanded="false"
+        aria-controls="sidebar">
+        <span class="hamburger" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+
+      <!-- Brand -->
+      <div class="brand" role="img" aria-label="Bookmark Manager">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="brand-name" data-i18n="app.name">Bookmark Manager</span>
+      </div>
+    </div>
+
+    <div class="topbar-right" role="toolbar" aria-label="Application controls">
+
+      <!-- Import -->
+      <label
+        id="topbarImportBtn"
+        class="btn btn-primary topbar-btn"
+        role="button"
+        tabindex="0"
+        aria-label="Import bookmarks HTML file">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span class="btn-label" data-i18n="action.import">Import</span>
+        <input type="file" id="bookmarkFile" accept=".html,.htm" hidden
+          aria-label="Choose bookmark HTML file">
+      </label>
+
+      <!-- Add Bookmark -->
+      <button id="btnAddBookmark" class="btn btn-secondary topbar-btn"
+        aria-label="Add bookmark manually">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span class="btn-label" data-i18n="action.addBookmark">Add Bookmark</span>
+      </button>
+
+      <!-- Export JSON -->
+      <button id="btnExportHtml" class="btn btn-secondary topbar-btn"
+        aria-label="Export bookmarks as HTML">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span class="btn-label" data-i18n="action.exportHtml">Export HTML</span>
+      </button>
+
+      <!-- Clear -->
+      <button id="btnClearData" class="btn btn-danger topbar-btn"
+        aria-label="Clear all bookmark data">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+        </svg>
+        <span class="btn-label" data-i18n="action.clear">Clear</span>
+      </button>
+
+      <div class="topbar-divider" aria-hidden="true"></div>
+
+      <!-- Language toggle -->
+      <button id="btnLang" class="btn btn-ghost topbar-btn" aria-label="Switch language">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <span class="btn-label" id="langLabel">EN</span>
+      </button>
+
+      <!-- Theme toggle -->
+      <button id="btnTheme" class="btn btn-ghost topbar-btn" aria-label="Toggle color theme">
+        <!-- Sun icon — shown in dark mode -->
+        <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <!-- Moon icon — shown in light mode -->
+        <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <span class="btn-label" id="themeLabel" data-i18n="action.darkMode">Dark</span>
+      </button>
+
+    </div>
+  </header>
+
+  <!-- ===================== UNSAVED BANNER ===================== -->
+  <div id="unsavedBanner" class="unsaved-banner" hidden aria-live="polite">
+    <svg class="unsaved-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    <span id="unsavedBannerText" class="unsaved-banner-text"></span>
+    <button id="unsavedBannerDismiss" class="unsaved-banner-dismiss" aria-label="Dismiss">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Mobile overlay backdrop -->
+  <div id="mobileOverlay" class="mobile-overlay" aria-hidden="true"></div>
+
+  <!-- ===================== MAIN LAYOUT ===================== -->
+  <div class="main-layout">
+
+    <!-- ============= SIDEBAR ============= -->
+    <aside id="sidebar" class="sidebar" role="complementary" aria-label="Folder navigation">
+
+      <!-- Search field -->
+      <div class="sidebar-search">
+        <div class="search-field">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            id="searchInput"
+            type="search"
+            role="searchbox"
+            aria-label="Search bookmarks"
+            data-i18n-placeholder="search.placeholder"
+            placeholder="Search bookmarks…"
+            autocomplete="off"
+            spellcheck="false">
+          <button id="searchClear" class="search-clear" aria-label="Clear search" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
         </div>
-        <div class="topbar-right">
-            <label class="upload-btn" role="button" tabindex="0">
-                <span class="btn-icon">↥</span>
-                <span class="btn-label">Import</span>
-                <input type="file" id="bookmarkFile" accept=".html,.htm" hidden>
-            </label>
-            <button id="btnExportJson">
-                <span class="btn-icon">↧</span>
-                <span class="btn-label">Export JSON</span>
-            </button>
-            <button id="btnClearData" class="btn-danger">
-                <span class="btn-icon">🗑</span>
-                <span class="btn-label">Clear</span>
-            </button>
-            <button id="btnTheme" class="btn-theme">
-                <span id="themeIcon">🌙</span>
-                <span class="btn-label" id="themeLabel">Dark</span>
-            </button>
+      </div>
+
+      <!-- Folders header -->
+      <div class="sidebar-folders-header">
+        <span class="sidebar-section-label" data-i18n="sidebar.folders">Folders</span>
+        <div class="sidebar-actions">
+          <button
+            id="expandAllBtn"
+            class="btn-icon-only sidebar-action-btn"
+            aria-label="Expand all folders"
+            data-i18n-title="action.expandAll"
+            title="Expand all">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+          </button>
+          <button
+            id="collapseAllBtn"
+            class="btn-icon-only sidebar-action-btn"
+            aria-label="Collapse all folders"
+            data-i18n-title="action.collapseAll"
+            title="Collapse all">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+            </svg>
+          </button>
         </div>
-    </header>
+      </div>
 
-    <!-- MOBILE OVERLAY -->
-    <div id="mobileOverlay" class="mobile-overlay"></div>
+      <!-- Folder tree — populated by tree.js render() -->
+      <nav id="folderTree" class="folder-tree" role="tree" aria-label="Folder tree">
+        <div class="empty-state small">
+          <span data-i18n="empty.noBookmarks">No bookmarks available</span>
+        </div>
+      </nav>
 
-    <!-- MAIN LAYOUT -->
-    <main class="main-layout">
+    </aside>
 
-        <!-- SIDEBAR -->
-        <aside id="sidebar" class="sidebar" role="complementary" aria-label="Folder navigation">
-            <div class="search-box">
-                <div class="search-wrapper">
-                    <span class="search-icon">🔍</span>
-                    <input id="searchInput" type="search" aria-label="Search bookmarks" placeholder="Search bookmarks…" autocomplete="off">
-                    <button id="searchClear" class="search-clear" aria-label="Clear search" hidden>✕</button>
-                </div>
-            </div>
-            <div class="folder-header">
-                <h3>Folders</h3>
-                <div class="folder-header-actions">
-                    <button id="expandAllBtn" class="toolbar-btn" type="button" title="Expand all folders">⊞</button>
-                    <button id="collapseAllBtn" class="toolbar-btn" type="button" title="Collapse all folders">⊟</button>
-                </div>
-            </div>
-            <div id="folderTree" class="folder-tree" role="tree" aria-label="Folder tree">
-                <div class="empty-state">No bookmarks available</div>
-            </div>
-        </aside>
+    <!-- ============= CONTENT ============= -->
+    <main class="content" role="main">
 
-        <!-- CONTENT -->
-        <section class="content" role="main">
+      <!-- Stats grid -->
+      <div class="stats-grid" role="region" aria-label="Statistics">
 
-            <!-- STATS -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">🔖</div>
-                    <div class="stat-body">
-                        <div class="stat-title">Total Bookmarks</div>
-                        <div id="statBookmarks" class="stat-value">0</div>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">📁</div>
-                    <div class="stat-body">
-                        <div class="stat-title">Total Folders</div>
-                        <div id="statFolders" class="stat-value">0</div>
-                    </div>
-                </div>
-                <div id="domainsCard" class="stat-card clickable" role="button" tabindex="0" aria-label="View unique domains">
-                    <div class="stat-icon">🌐</div>
-                    <div class="stat-body">
-                        <div class="stat-title">Unique Domains</div>
-                        <div id="statDomains" class="stat-value">0</div>
-                    </div>
-                    <div class="stat-cta">View →</div>
-                </div>
-                <div id="duplicatesCard" class="stat-card clickable" role="button" tabindex="0" aria-label="View duplicate URLs">
-                    <div class="stat-icon">⚠️</div>
-                    <div class="stat-body">
-                        <div class="stat-title">Duplicate URLs</div>
-                        <div id="statDuplicates" class="stat-value">0</div>
-                    </div>
-                    <div class="stat-cta">View →</div>
-                </div>
-            </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label" data-i18n="stat.totalBookmarks">Total Bookmarks</div>
+            <div id="statBookmarks" class="stat-value" aria-live="polite">0</div>
+          </div>
+        </div>
 
-            <!-- VIEW HEADER -->
-            <div class="view-header">
-                <div class="view-header-left">
-                    <div class="view-header-title-row">
-                        <button id="btnBackToBookmarks" class="btn-back" hidden aria-label="Back to bookmarks">← Back</button>
-                        <span id="currentFolderName">All Bookmarks</span>
-                    </div>
-                    <span id="bookmarkCount" class="view-count">0 items</span>
-                </div>
-                <div id="viewBadge" class="view-badge">Bookmarks</div>
-            </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label" data-i18n="stat.totalFolders">Total Folders</div>
+            <div id="statFolders" class="stat-value" aria-live="polite">0</div>
+          </div>
+        </div>
 
-            <!-- BOOKMARK LIST -->
-            <div id="bookmarkContainer" class="bookmark-container" role="list" aria-label="Bookmark list">
-                <div class="empty-state large">
-                    <div class="empty-icon">📭</div>
-                    <div class="empty-title">No bookmarks yet</div>
-                    <div class="empty-desc">Import a bookmark HTML file to get started</div>
-                </div>
-            </div>
-        </section>
+        <button id="domainsCard" class="stat-card stat-card-action"
+          aria-label="View unique domains">
+          <div class="stat-icon-wrap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label" data-i18n="stat.uniqueDomains">Unique Domains</div>
+            <div id="statDomains" class="stat-value" aria-live="polite">0</div>
+          </div>
+          <svg class="stat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
 
-        <!-- DETAILS PANEL -->
-        <aside id="detailsPanel" class="details-panel" role="complementary" aria-label="Bookmark details">
-            <div class="details-header">
-                <h3>Details</h3>
-                <button id="closePanelBtn" class="close-panel-btn" aria-label="Close details panel">✕</button>
-            </div>
-            <div id="bookmarkDetails" class="bookmark-details">
-                <div class="empty-state">
-                    <div class="empty-icon">👆</div>
-                    <div>Select a bookmark to view details</div>
-                </div>
-            </div>
-        </aside>
+        <button id="duplicatesCard" class="stat-card stat-card-action"
+          aria-label="View duplicate URLs">
+          <div class="stat-icon-wrap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-label" data-i18n="stat.duplicateURLs">Duplicate URLs</div>
+            <div id="statDuplicates" class="stat-value" aria-live="polite">0</div>
+          </div>
+          <svg class="stat-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
+
+      </div><!-- .stats-grid -->
+
+      <!-- View header -->
+      <div class="view-header">
+        <div class="view-header-left">
+          <button id="btnBackToBookmarks"
+            class="btn btn-ghost btn-sm back-btn"
+            hidden
+            aria-label="Back to bookmarks">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="19" y1="12" x2="5" y2="12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            <span data-i18n="action.back">Back</span>
+          </button>
+          <div class="view-title-block">
+            <h2 id="currentFolderName" class="view-title" data-i18n="view.allBookmarks">
+              All Bookmarks
+            </h2>
+            <span id="bookmarkCount" class="view-count" aria-live="polite">0 items</span>
+          </div>
+        </div>
+        <span id="viewBadge" class="view-badge" aria-live="polite" data-i18n="badge.bookmarks">
+          Bookmarks
+        </span>
+      </div>
+
+      <!-- Bookmark list — populated by app.js -->
+      <div id="bookmarkContainer"
+        class="bookmark-list"
+        role="list"
+        aria-label="Bookmarks"
+        aria-live="polite">
+        <div class="empty-state large">
+          <div class="empty-illustration" aria-hidden="true">
+            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="80" height="80" rx="20" fill="currentColor" fill-opacity="0.06"/>
+              <path d="M52 20H28a4 4 0 0 0-4 4v32l16-10 16 10V24a4 4 0 0 0-4-4z"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" stroke-opacity="0.3"/>
+            </svg>
+          </div>
+          <p class="empty-title" data-i18n="empty.noBookmarksTitle">No bookmarks yet</p>
+          <p class="empty-desc" data-i18n="empty.noBookmarksDesc">
+            Import a bookmark HTML file to get started
+          </p>
+          <label id="emptyImportBtn" class="btn btn-primary empty-cta" role="button" tabindex="0"
+            aria-label="Import bookmarks file">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span data-i18n="action.importFile">Import Bookmarks</span>
+            <input type="file" accept=".html,.htm" hidden id="bookmarkFileCta"
+              aria-label="Choose bookmark HTML file">
+          </label>
+        </div>
+      </div>
 
     </main>
 
-    <!-- TOAST -->
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <!-- ============= DETAILS PANEL ============= -->
+    <aside id="detailsPanel" class="details-panel"
+      role="complementary" aria-label="Bookmark details">
+      <div class="details-header">
+        <h3 class="details-title" data-i18n="panel.details">Details</h3>
+        <button id="closePanelBtn"
+          class="btn-icon-only close-panel-btn"
+          aria-label="Close details panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Content populated by app.js _showBookmarkDetails() -->
+      <div id="bookmarkDetails" class="details-body">
+        <div class="empty-state">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 15l-2 5L9 9l11 4-5 2z"/>
+          </svg>
+          <p class="empty-hint" data-i18n="empty.selectBookmark">
+            Select a bookmark to view details
+          </p>
+        </div>
+      </div>
+    </aside>
 
-    <!-- LOADING -->
-    <div id="loadingOverlay" class="loading-overlay" hidden>
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading…</div>
+  </div><!-- .main-layout -->
+
+  <!-- ===================== TOAST ===================== -->
+  <div id="toastContainer"
+    class="toast-container"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true">
+  </div>
+
+  <!-- ===================== LOADING OVERLAY ===================== -->
+  <div id="loadingOverlay" class="loading-overlay" hidden
+    role="status" aria-label="Loading">
+    <div class="loading-card">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p class="loading-text" data-i18n="loading.default">Loading…</p>
     </div>
+  </div>
 
-    <!-- TEMPLATES -->
-    <template id="bookmarkTemplate">
-        <div class="bookmark-item" tabindex="0" role="listitem">
-            <div class="bookmark-left">
-                <img class="bookmark-favicon" loading="lazy" src="" alt="" width="20" height="20">
-            </div>
-            <div class="bookmark-center">
-                <div class="bookmark-title"></div>
-                <div class="bookmark-url"></div>
-                <div class="bookmark-meta">
-                    <span class="bookmark-domain"></span>
-                    <span class="bookmark-folder"></span>
-                </div>
-            </div>
-            <div class="bookmark-right">
-                <button class="bookmark-open-btn" title="Open bookmark" aria-label="Open bookmark">↗</button>
-            </div>
+  <!-- ===================== CONFIRM DIALOG ===================== -->
+  <div id="confirmDialog"
+    class="dialog-backdrop"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="dialogTitle"
+    aria-describedby="dialogDesc">
+    <div class="dialog-box">
+      <div class="dialog-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <h4 id="dialogTitle" class="dialog-title" data-i18n="dialog.confirmTitle">
+        Are you sure?
+      </h4>
+      <p id="dialogDesc" class="dialog-desc" data-i18n="dialog.clearDesc">
+        This will permanently delete all bookmark data and cannot be undone.
+      </p>
+      <div class="dialog-actions">
+        <button id="dialogCancel" class="btn btn-ghost" data-i18n="action.cancel">
+          Cancel
+        </button>
+        <button id="dialogConfirm" class="btn btn-danger" data-i18n="action.confirmDelete">
+          Delete All
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== CRUD MODAL ===================== -->
+  <div id="crudModal"
+    class="crud-modal-backdrop"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="crudModalTitle">
+    <div class="crud-modal-box">
+      <h4 id="crudModalTitle" class="crud-modal-title"></h4>
+      <div class="crud-form-group">
+        <label class="crud-form-label" data-i18n="panel.title">Title</label>
+        <input id="crudInputTitle" class="crud-form-input" type="text" autocomplete="off">
+      </div>
+      <div class="crud-form-group">
+        <label class="crud-form-label" data-i18n="panel.url">URL</label>
+        <textarea id="crudInputUrl" class="crud-form-textarea"></textarea>
+      </div>
+      <div class="crud-form-group">
+        <label class="crud-form-label" data-i18n="panel.folderPath">Folder Path</label>
+        <input id="crudInputPath" class="crud-form-input" type="text" autocomplete="off">
+      </div>
+      <div class="crud-modal-actions">
+        <button id="crudCancelBtn" class="btn btn-ghost" data-i18n="action.cancel">Cancel</button>
+        <button id="crudSaveBtn" class="btn btn-primary" data-i18n="action.save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TEMPLATES ===================== -->
+
+  <!-- Bookmark item template — cloned by app.js _createBookmarkNode() -->
+  <template id="bookmarkTemplate">
+    <div class="bookmark-item" tabindex="0" role="listitem">
+      <div class="bookmark-favicon-wrap">
+        <img class="bookmark-favicon" loading="lazy" src="" alt=""
+          width="20" height="20" draggable="false">
+        <div class="bookmark-favicon-fallback" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
         </div>
-    </template>
-
-    <template id="folderTemplate">
-        <div class="folder-node">
-            <div class="folder-row">
-                <span class="folder-toggle">▶</span>
-                <span class="folder-icon">📁</span>
-                <span class="folder-name"></span>
-                <span class="folder-count"></span>
-            </div>
-            <div class="folder-children"></div>
+      </div>
+      <div class="bookmark-body">
+        <p class="bookmark-title"></p>
+        <p class="bookmark-url"></p>
+        <div class="bookmark-chips">
+          <span class="bookmark-chip chip-domain"></span>
+          <span class="bookmark-chip chip-folder"></span>
         </div>
-    </template>
-
-    <template id="duplicateGroupTemplate">
-        <div class="duplicate-group">
-            <div class="duplicate-header">
-                <div class="duplicate-title"></div>
-                <div class="duplicate-count"></div>
-            </div>
-            <div class="duplicate-url"></div>
-            <div class="duplicate-items"></div>
+      </div>
+      <div class="bookmark-actions">
+        <button class="btn-icon-only bookmark-open-btn" aria-label="Open in new tab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </button>
+        <div class="bookmark-item-actions-crud">
+          <button class="bookmark-edit-btn" aria-label="Edit bookmark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <button class="bookmark-delete-btn" aria-label="Delete bookmark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
         </div>
-    </template>
+      </div>
+    </div>
+  </template>
 
-    <template id="domainGroupTemplate">
-        <div class="domain-item">
-            <div class="domain-item-left">
-                <div class="domain-favicon-wrap">
-                    <img class="domain-favicon" loading="lazy" src="" alt="" width="18" height="18">
-                </div>
-                <div class="domain-info">
-                    <div class="domain-name"></div>
-                    <div class="domain-total"></div>
-                </div>
-            </div>
-            <div class="domain-item-right">View →</div>
-        </div>
-    </template>
+  <!-- Domain item template — cloned by app.js _renderDomainList() -->
+  <template id="domainItemTemplate">
+    <div class="domain-item" tabindex="0" role="button">
+      <div class="domain-item-favicon-wrap">
+        <img class="domain-favicon" loading="lazy" src="" alt=""
+          width="20" height="20" draggable="false">
+      </div>
+      <div class="domain-item-body">
+        <p class="domain-name"></p>
+        <p class="domain-count"></p>
+      </div>
+      <svg class="domain-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </div>
+  </template>
 
-    <script src="storage.js"></script>
-    <script src="parser.js"></script>
-    <script src="tree.js"></script>
-    <script src="app.js"></script>
+  <!-- Scripts — order matters: i18n → storage → parser → tree → app -->
+  <script src="i18n.js"></script>
+  <script src="storage.js"></script>
+  <script src="parser.js"></script>
+  <script src="tree.js"></script>
+  <script src="app.js"></script>
+
 </body>
 </html>

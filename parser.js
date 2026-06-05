@@ -1,315 +1,282 @@
 /*
 =========================================
-parser.js
-Bookmark Manager
+  parser.js — Bookmark Manager
+  Parses Netscape Bookmark HTML format.
+  Provides search, domain, duplicate utils.
 =========================================
 */
 
+"use strict";
+
 const BookmarkParser = (() => {
 
-    /* =========================================
-       UUID
-    ========================================= */
+  /* =========================================
+     UUID
+  ========================================= */
 
-    function createUUID() {
-        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-            return crypto.randomUUID();
-        }
-        return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  function _uuid() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  /* =========================================
+     PARSE HTML FILE
+     Entry point called by app.js handleImport()
+  ========================================= */
+
+  function parse(htmlText) {
+    if (typeof htmlText !== "string" || !htmlText.trim()) {
+      return { bookmarks: [], tree: _folderNode("ROOT", "") };
     }
 
-    /* =========================================
-       PUBLIC PARSE
-    ========================================= */
+    const doc      = new DOMParser().parseFromString(htmlText, "text/html");
+    const bookmarks = [];
+    const rootTree  = _folderNode("ROOT", "");
+    const rootDL    = doc.querySelector("dl");
 
-    function parse(htmlText) {
+    if (!rootDL) return { bookmarks, tree: rootTree };
 
-        const parser   = new DOMParser();
-        const doc      = parser.parseFromString(htmlText, "text/html");
-        const bookmarks = [];
-        const rootTree  = createFolderNode("ROOT", "");
-        const rootDL    = doc.querySelector("dl");
+    _walkDL(rootDL, [], rootTree, bookmarks);
+    rebuildCounts(rootTree, bookmarks);
 
-        if (!rootDL) return { bookmarks, tree: rootTree };
+    return { bookmarks, tree: rootTree };
+  }
 
-        walkDL(rootDL, [], rootTree, bookmarks);
-        rebuildCountsFromBookmarks(rootTree, bookmarks);
+  /* =========================================
+     WALK DL
+  ========================================= */
 
-        return { bookmarks, tree: rootTree };
+  function _walkDL(dlNode, currentPath, treeNode, bookmarks) {
+    const children = Array.from(dlNode.children);
+    children.forEach((node, i) => {
+      if (node.tagName?.toUpperCase() === "DT") {
+        _processDT(node, children, i, currentPath, treeNode, bookmarks);
+      }
+    });
+  }
+
+  /* =========================================
+     PROCESS DT
+  ========================================= */
+
+  function _processDT(dtNode, siblings, index, currentPath, treeNode, bookmarks) {
+    const dtChildren    = Array.from(dtNode.children);
+    const folderHeading = dtChildren.find(c => c.tagName?.toUpperCase() === "H3");
+    const anchorLink    = dtChildren.find(c => c.tagName?.toUpperCase() === "A");
+
+    if (folderHeading) {
+      const name      = _sanitize(folderHeading.textContent) || "Unnamed Folder";
+      const pathParts = [...currentPath, name];
+      const node      = _folderNode(name, pathParts.join("/"));
+
+      treeNode.children.push(node);
+
+      let nestedDL = dtChildren.find(c => c.tagName?.toUpperCase() === "DL");
+      if (!nestedDL) {
+        const next = siblings[index + 1];
+        if (next?.tagName?.toUpperCase() === "DL") nestedDL = next;
+      }
+
+      if (nestedDL) _walkDL(nestedDL, pathParts, node, bookmarks);
+      return;
     }
 
-    /* =========================================
-       WALK DL
-    ========================================= */
+    if (anchorLink) {
+      const url = (anchorLink.getAttribute("href") || "").trim();
+      if (!url || !_isSafeProtocol(url)) return;
 
-    function walkDL(dlNode, currentPath, treeNode, bookmarks) {
+      const title  = _sanitize(anchorLink.textContent) || "(Untitled)";
+      const folder = currentPath.length ? currentPath[currentPath.length - 1] : "Uncategorized";
+      const path   = currentPath.length ? currentPath.join("/") : "Uncategorized";
 
-        const children = Array.from(dlNode.children);
-
-        for (let i = 0; i < children.length; i++) {
-
-            const node = children[i];
-
-            if (node.tagName?.toUpperCase() !== "DT") continue;
-
-            processDT(node, children, i, currentPath, treeNode, bookmarks);
-        }
+      bookmarks.push(_bookmark(title, url, folder, path, anchorLink));
     }
+  }
 
-    /* =========================================
-       PROCESS DT
-    ========================================= */
+  /* =========================================
+     FACTORIES
+  ========================================= */
 
-    function processDT(dtNode, siblings, index, currentPath, treeNode, bookmarks) {
+  function _bookmark(title, url, folder, path, anchor) {
+    const raw     = anchor.getAttribute("add_date");
+    const addDate = raw && Number.isFinite(Number(raw)) && Number(raw) > 0
+      ? Number(raw) * 1000
+      : Date.now();
 
-        const folderTitle = Array.from(dtNode.children).find(
-            c => c.tagName?.toUpperCase() === "H3"
-        );
+    return { id: _uuid(), title, url, folder, path, addDate };
+  }
 
-        const bookmarkLink = Array.from(dtNode.children).find(
-            c => c.tagName?.toUpperCase() === "A"
-        );
+  function _folderNode(name, path) {
+    return { id: _uuid(), name, path, count: 0, children: [] };
+  }
 
-        /* --- FOLDER --- */
-        if (folderTitle) {
+  /* =========================================
+     TEXT SANITIZATION
+  ========================================= */
 
-            const folderName = sanitizeText(folderTitle.textContent) || "Unnamed Folder";
-            const pathParts  = [...currentPath, folderName];
-            const fullPath   = pathParts.join("/");
-            const folderNode = createFolderNode(folderName, fullPath);
+  function _sanitize(text) {
+    return (text || "").trim().replace(/\s+/g, " ");
+  }
 
-            treeNode.children.push(folderNode);
+  /* =========================================
+     URL UTILITIES
+  ========================================= */
 
-            let nestedDL = Array.from(dtNode.children).find(
-                c => c.tagName?.toUpperCase() === "DL"
-            );
-
-            if (!nestedDL) {
-                const next = siblings[index + 1];
-                if (next && next.tagName?.toUpperCase() === "DL") nestedDL = next;
-            }
-
-            if (nestedDL) walkDL(nestedDL, pathParts, folderNode, bookmarks);
-            return;
-        }
-
-        /* --- BOOKMARK --- */
-        if (bookmarkLink) {
-
-            const title  = sanitizeText(bookmarkLink.textContent) || "(Untitled)";
-            const url    = (bookmarkLink.getAttribute("href") || "").trim();
-
-            if (!url) return;
-
-            const folder = currentPath.length ? currentPath[currentPath.length - 1] : "Uncategorized";
-            const path   = currentPath.length ? currentPath.join("/") : "Uncategorized";
-
-            bookmarks.push(createBookmark(title, url, folder, path, bookmarkLink));
-        }
+  function _isSafeProtocol(url) {
+    try {
+      return ["http:", "https:"].includes(new URL(url).protocol);
+    } catch {
+      return false;
     }
+  }
 
-    /* =========================================
-       CREATE BOOKMARK
-    ========================================= */
-
-    function createBookmark(title, url, folder, path, anchorNode) {
-
-        let addDate = Date.now();
-        const rawDate = anchorNode.getAttribute("add_date");
-
-        if (rawDate && Number.isFinite(Number(rawDate))) {
-            addDate = Number(rawDate) * 1000;
-        }
-
-        return { id: createUUID(), title, url, folder, path, addDate };
+  function getDomain(url) {
+    try {
+      return new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    } catch {
+      return "";
     }
+  }
 
-    /* =========================================
-       CREATE FOLDER NODE
-    ========================================= */
+  function normalizeURL(url) {
+    try {
+      const parsed = new URL(url);
+      parsed.hash  = "";
 
-    function createFolderNode(name, path) {
-        return { id: createUUID(), name, path, count: 0, children: [] };
+      const params = [...parsed.searchParams.entries()].sort((a, b) =>
+        a[0].localeCompare(b[0])
+      );
+      parsed.search = "";
+      params.forEach(([k, v]) => parsed.searchParams.append(k, v));
+
+      let out = parsed.toString();
+      if (out.endsWith("/")) out = out.slice(0, -1);
+      return out.toLowerCase();
+    } catch {
+      return (url || "").trim().toLowerCase();
     }
+  }
 
-    /* =========================================
-       SANITIZE
-    ========================================= */
+  /* =========================================
+     REBUILD FOLDER COUNTS
+     Called after parse() and after import.
+  ========================================= */
 
-    function sanitizeText(text) {
-        return (text || "").trim().replace(/\s+/g, " ");
+  function rebuildCounts(tree, bookmarks) {
+    const nodeMap = new Map();
+
+    function _map(node) {
+      node.count = 0;
+      nodeMap.set(node.path, node);
+      node.children.forEach(_map);
     }
+    _map(tree);
 
-    /* =========================================
-       DOMAIN
-    ========================================= */
+    bookmarks.forEach(({ path }) => {
+      const parts = (path || "").split("/");
+      let   cur   = "";
+      parts.forEach(part => {
+        cur = cur ? `${cur}/${part}` : part;
+        const n = nodeMap.get(cur);
+        if (n) n.count++;
+      });
+    });
 
-    function getDomain(url) {
-        try {
-            return new URL(url).hostname.replace(/^www\./i, "");
-        } catch {
-            return "";
-        }
+    function _sum(node) {
+      node.children.forEach(_sum);
+      node.count = node.children.reduce((s, c) => s + c.count, node.count);
     }
+    _sum(tree);
+  }
 
-    /* =========================================
-       NORMALIZE URL
-    ========================================= */
+  /* =========================================
+     STATISTICS
+  ========================================= */
 
-    function normalizeURL(url) {
-        try {
-            const parsed = new URL(url);
-            parsed.hash  = "";
+  function countDuplicates(bookmarks) {
+    const map = new Map();
+    bookmarks.forEach(b => {
+      const url = normalizeURL(b.url);
+      map.set(url, (map.get(url) || 0) + 1);
+    });
+    let total = 0;
+    map.forEach(count => { if (count > 1) total += count; });
+    return total;
+  }
 
-            const params = Array.from(parsed.searchParams.entries());
-            params.sort((a, b) => a[0].localeCompare(b[0]));
+  function countUniqueDomains(bookmarks) {
+    return new Set(
+      bookmarks.map(b => getDomain(b.url)).filter(Boolean)
+    ).size;
+  }
 
-            parsed.search = "";
-            params.forEach(([key, value]) => parsed.searchParams.append(key, value));
+  /* =========================================
+     DOMAIN LIST
+     Used by app.js showDomains() / renderDomainList()
+  ========================================= */
 
-            let normalized = parsed.toString();
-            if (normalized.endsWith("/")) normalized = normalized.slice(0, -1);
+  function getDomains(bookmarks) {
+    const map = new Map();
+    bookmarks.forEach(b => {
+      const d = getDomain(b.url);
+      if (d) map.set(d, (map.get(d) || 0) + 1);
+    });
+    return [...map.entries()]
+      .map(([domain, count]) => ({ domain, count }))
+      .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain));
+  }
 
-            return normalized;
-        } catch {
-            return (url || "").trim();
-        }
-    }
+  /* =========================================
+     DUPLICATE URL GROUPS
+     Used by app.js showDuplicates() / renderDuplicateGroups()
+  ========================================= */
 
-    /* =========================================
-       REBUILD COUNTS
-    ========================================= */
+  function getDuplicateURLs(bookmarks) {
+    const map = new Map();
+    bookmarks.forEach(b => {
+      const url = normalizeURL(b.url);
+      if (!map.has(url)) map.set(url, []);
+      map.get(url).push(b);
+    });
+    return [...map.entries()]
+      .filter(([, items]) => items.length > 1)
+      .map(([url, items]) => ({ url, count: items.length, items }))
+      .sort((a, b) => b.count - a.count);
+  }
 
-    function rebuildCountsFromBookmarks(tree, bookmarks) {
+  /* =========================================
+     SEARCH
+     Used by app.js renderBookmarks()
+  ========================================= */
 
-        const nodeMap = new Map();
+  function searchBookmarks(bookmarks, keyword) {
+    const q = (keyword || "").trim().toLowerCase();
+    if (!q) return bookmarks;
 
-        function walk(node) {
-            node.count = 0;
-            nodeMap.set(node.path, node);
-            node.children.forEach(walk);
-        }
+    return bookmarks.filter(b =>
+      (b.title  || "").toLowerCase().includes(q) ||
+      (b.url    || "").toLowerCase().includes(q) ||
+      (b.folder || "").toLowerCase().includes(q) ||
+      (b.path   || "").toLowerCase().includes(q)
+    );
+  }
 
-        walk(tree);
+  /* =========================================
+     PUBLIC API
+  ========================================= */
 
-        bookmarks.forEach(bookmark => {
-
-            const parts = bookmark.path.split("/");
-            let current = "";
-
-            parts.forEach(part => {
-                current = current ? `${current}/${part}` : part;
-                const node = nodeMap.get(current);
-                if (node) node.count++;
-            });
-        });
-
-        function aggregate(node) {
-            node.children.forEach(aggregate);
-            const childCount = node.children.reduce((sum, c) => sum + c.count, 0);
-            node.count += childCount;
-        }
-
-        aggregate(tree);
-    }
-
-    /* =========================================
-       DUPLICATE COUNT
-    ========================================= */
-
-    function countDuplicates(bookmarks) {
-
-        const map = new Map();
-
-        bookmarks.forEach(b => {
-            const url = normalizeURL(b.url);
-            map.set(url, (map.get(url) || 0) + 1);
-        });
-
-        let total = 0;
-        map.forEach(count => { if (count > 1) total += count; });
-        return total;
-    }
-
-    /* =========================================
-       UNIQUE DOMAINS COUNT
-    ========================================= */
-
-    function countUniqueDomains(bookmarks) {
-        return new Set(
-            bookmarks.map(b => getDomain(b.url)).filter(Boolean)
-        ).size;
-    }
-
-    /* =========================================
-       GET DOMAINS
-    ========================================= */
-
-    function getDomains(bookmarks) {
-
-        const map = new Map();
-
-        bookmarks.forEach(b => {
-            const domain = getDomain(b.url);
-            if (!domain) return;
-            map.set(domain, (map.get(domain) || 0) + 1);
-        });
-
-        return [...map.entries()]
-            .map(([domain, count]) => ({ domain, count }))
-            .sort((a, b) => b.count - a.count);
-    }
-
-    /* =========================================
-       GET DUPLICATE URLs
-    ========================================= */
-
-    function getDuplicateURLs(bookmarks) {
-
-        const map = new Map();
-
-        bookmarks.forEach(b => {
-            const url = normalizeURL(b.url);
-            if (!map.has(url)) map.set(url, []);
-            map.get(url).push(b);
-        });
-
-        return [...map.entries()]
-            .filter(([, items]) => items.length > 1)
-            .map(([url, items]) => ({ url, count: items.length, items }))
-            .sort((a, b) => b.count - a.count);
-    }
-
-    /* =========================================
-       SEARCH
-    ========================================= */
-
-    function searchBookmarks(bookmarks, keyword) {
-
-        const q = (keyword || "").trim().toLowerCase();
-        if (!q) return bookmarks;
-
-        return bookmarks.filter(b =>
-            b.title.toLowerCase().includes(q) ||
-            b.url.toLowerCase().includes(q) ||
-            b.path.toLowerCase().includes(q)
-        );
-    }
-
-    /* =========================================
-       API
-    ========================================= */
-
-    return {
-        parse,
-        getDomain,
-        normalizeURL,
-        rebuildCountsFromBookmarks,
-        countDuplicates,
-        countUniqueDomains,
-        getDomains,
-        getDuplicateURLs,
-        searchBookmarks
-    };
+  return {
+    parse,
+    getDomain,
+    normalizeURL,
+    rebuildCounts,
+    countDuplicates,
+    countUniqueDomains,
+    getDomains,
+    getDuplicateURLs,
+    searchBookmarks,
+  };
 
 })();

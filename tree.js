@@ -1,303 +1,361 @@
 /*
 =========================================
-tree.js
-Bookmark Manager
+  tree.js — Bookmark Manager
+  Builds & manages the sidebar folder tree.
+  DOM classes must match style.css:
+  .folder-node, .folder-row, .folder-row-all,
+  .folder-children, .folder-chevron,
+  .folder-icon, .folder-label, .folder-count-badge
+  States: .active, .expanded, .collapsed
 =========================================
 */
 
+"use strict";
+
 const FolderTree = (() => {
 
-    let container       = null;
-    let activePath      = "ALL";
-    let onFolderSelected = null;
+  let _container        = null;
+  let _activePath       = "ALL";
+  let _onFolderSelected = null;
 
-    const expandedPaths = new Set();
+  const _expandedPaths = new Set();
 
-    /* =========================================
-       INIT
-    ========================================= */
+  /* =========================================
+     INIT
+     Called by app.js bindEvents()
+  ========================================= */
 
-    function init(containerElement, callback) {
-        container        = containerElement;
-        onFolderSelected = callback;
+  function init(containerElement, callback) {
+    _container        = containerElement;
+    _onFolderSelected = callback;
+  }
+
+  /* =========================================
+     RENDER
+     Called by app.js after import / loadSavedData
+  ========================================= */
+
+  function render(tree) {
+    if (!_container) return;
+
+    _container.innerHTML = "";
+
+    /* "All Bookmarks" root node */
+    _container.appendChild(_buildAllNode());
+
+    if (!tree?.children?.length) return;
+
+    const fragment = document.createDocumentFragment();
+    tree.children.forEach(child => fragment.appendChild(_buildFolderNode(child)));
+    _container.appendChild(fragment);
+
+    _syncSelection();
+  }
+
+  /* =========================================
+     "ALL BOOKMARKS" STATIC NODE
+  ========================================= */
+
+  function _buildAllNode() {
+    const row = document.createElement("div");
+    row.className = "folder-row folder-row-all";
+    row.setAttribute("role",         "treeitem");
+    row.setAttribute("tabindex",     "0");
+    row.setAttribute("aria-selected", _activePath === "ALL" ? "true" : "false");
+    if (_activePath === "ALL") row.classList.add("active");
+
+    /* Spacer to align with chevron column */
+    const spacer = document.createElement("span");
+    spacer.className = "folder-chevron";
+    spacer.setAttribute("aria-hidden", "true");
+
+    const icon = document.createElement("span");
+    icon.className = "folder-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+    </svg>`;
+
+    const label = document.createElement("span");
+    label.className   = "folder-label";
+    label.textContent = I18n.t("sidebar.allBookmarks");
+
+    row.append(spacer, icon, label);
+
+    row.addEventListener("click", () => _selectFolder("ALL"));
+    row.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _selectFolder("ALL"); }
+    });
+
+    return row;
+  }
+
+  /* =========================================
+     BUILD FOLDER NODE
+  ========================================= */
+
+  function _buildFolderNode(node) {
+    const hasChildren = Boolean(node.children?.length);
+    const isExpanded  = _expandedPaths.has(node.path);
+
+    /* Wrapper — role="treeitem" for ARIA tree */
+    const wrapper = document.createElement("div");
+    wrapper.className = `folder-node ${isExpanded ? "expanded" : "collapsed"}`;
+    wrapper.dataset.path = node.path;
+    wrapper.setAttribute("role", "treeitem");
+    if (hasChildren) {
+      wrapper.setAttribute("aria-expanded", String(isExpanded));
     }
 
-    /* =========================================
-       RENDER
-    ========================================= */
+    /* Row */
+    const row = document.createElement("div");
+    row.className = "folder-row";
+    row.dataset.path = node.path;
+    row.setAttribute("tabindex",      "0");
+    row.setAttribute("aria-selected", _activePath === node.path ? "true" : "false");
+    if (_activePath === node.path) row.classList.add("active");
 
-    function render(tree) {
+    /* Chevron */
+    const chevron = document.createElement("span");
+    chevron.className = "folder-chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    if (hasChildren) {
+      chevron.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>`;
+      chevron.style.cursor = "pointer";
+      chevron.addEventListener("click", e => {
+        e.stopPropagation();
+        _toggleNode(wrapper, node.path);
+      });
+    }
 
-        if (!container) return;
+    /* Folder icon */
+    const icon = document.createElement("span");
+    icon.className = "folder-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = hasChildren
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+          <polyline points="13 2 13 9 20 9"/>
+        </svg>`;
 
-        container.innerHTML = "";
-        container.appendChild(createAllNode());
+    /* Label */
+    const label = document.createElement("span");
+    label.className   = "folder-label";
+    label.textContent = node.name;
+    label.title       = node.name;
 
-        if (
-            !tree ||
-            !Array.isArray(tree.children) ||
-            !tree.children.length
-        ) {
-            return;
+    /* Count badge */
+    const badge = document.createElement("span");
+    badge.className   = "folder-count-badge";
+    badge.textContent = (node.count || 0).toLocaleString();
+    badge.setAttribute("aria-label", `${node.count || 0} bookmarks`);
+
+    row.append(chevron, icon, label, badge);
+
+    /* Children container */
+    const children = document.createElement("div");
+    children.className = "folder-children";
+    children.setAttribute("role", "group");
+
+    if (hasChildren) {
+      node.children.forEach(child => children.appendChild(_buildFolderNode(child)));
+    }
+
+    /* Row events */
+    row.addEventListener("click", () => _selectFolder(node.path));
+    row.addEventListener("keydown", e => {
+      switch (e.key) {
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          _selectFolder(node.path);
+          break;
+        case "ArrowRight":
+          if (hasChildren && !_expandedPaths.has(node.path)) {
+            e.preventDefault();
+            _toggleNode(wrapper, node.path);
+          }
+          break;
+        case "ArrowLeft":
+          if (_expandedPaths.has(node.path)) {
+            e.preventDefault();
+            _toggleNode(wrapper, node.path);
+          }
+          break;
+        case "ArrowDown": {
+          e.preventDefault();
+          _focusNext(row);
+          break;
         }
-
-        const fragment = document.createDocumentFragment();
-
-        tree.children.forEach(child => {
-            fragment.appendChild(createFolderDOM(child));
-        });
-
-        container.appendChild(fragment);
-        refreshSelection();
-    }
-
-    /* =========================================
-       ALL BOOKMARKS NODE
-    ========================================= */
-
-    function createAllNode() {
-
-        const row = document.createElement("div");
-        row.className = "folder-row";
-        row.setAttribute("role", "treeitem");
-        row.setAttribute("tabindex", "0");
-
-        if (activePath === "ALL") row.classList.add("active");
-
-        row.innerHTML = `
-            <span class="folder-toggle"></span>
-            <span class="folder-icon">📚</span>
-            <span class="folder-name">All Bookmarks</span>
-        `;
-
-        row.addEventListener("click", () => selectFolder("ALL"));
-        row.addEventListener("keydown", e => {
-            if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                selectFolder("ALL");
-            }
-        });
-
-        return row;
-    }
-
-    /* =========================================
-       CREATE FOLDER NODE DOM
-    ========================================= */
-
-    function createFolderDOM(node) {
-
-        const wrapper = document.createElement("div");
-        wrapper.className    = "folder-node";
-        wrapper.dataset.path = node.path;
-        wrapper.setAttribute("role", "treeitem");
-
-        const isExpanded = expandedPaths.has(node.path);
-        wrapper.classList.add(isExpanded ? "expanded" : "collapsed");
-
-        /* --- row --- */
-        const row = document.createElement("div");
-        row.className    = "folder-row";
-        row.dataset.path = node.path;
-        row.setAttribute("tabindex", "0");
-
-        if (activePath === node.path) row.classList.add("active");
-
-        /* --- toggle --- */
-        const toggle = document.createElement("span");
-        toggle.className = "folder-toggle";
-        toggle.textContent = node.children?.length ? "▶" : "";
-
-        /* --- icon --- */
-        const icon = document.createElement("span");
-        icon.className  = "folder-icon";
-        icon.textContent = "📁";
-
-        /* --- name --- */
-        const name = document.createElement("span");
-        name.className  = "folder-name";
-        name.textContent = node.name;
-
-        /* --- count --- */
-        const count = document.createElement("span");
-        count.className  = "folder-count";
-        count.textContent = node.count || 0;
-
-        row.append(toggle, icon, name, count);
-
-        /* --- children container --- */
-        const children = document.createElement("div");
-        children.className = "folder-children";
-
-        if (Array.isArray(node.children)) {
-            node.children.forEach(child => {
-                children.appendChild(createFolderDOM(child));
-            });
+        case "ArrowUp": {
+          e.preventDefault();
+          _focusPrev(row);
+          break;
         }
+      }
+    });
 
-        /* --- events --- */
-        if (node.children?.length) {
+    wrapper.append(row, children);
+    return wrapper;
+  }
 
-            toggle.addEventListener("click", event => {
-                event.stopPropagation();
-                toggleFolder(wrapper, node.path);
-            });
-        }
+  /* =========================================
+     TOGGLE EXPAND / COLLAPSE
+  ========================================= */
 
-        row.addEventListener("click", () => selectFolder(node.path));
+  function _toggleNode(wrapper, path) {
+    const expanded = wrapper.classList.contains("expanded");
+    wrapper.classList.toggle("expanded",   !expanded);
+    wrapper.classList.toggle("collapsed",   expanded);
+    if (wrapper.hasAttribute("aria-expanded")) {
+      wrapper.setAttribute("aria-expanded", String(!expanded));
+    }
+    expanded ? _expandedPaths.delete(path) : _expandedPaths.add(path);
+  }
 
-        row.addEventListener("keydown", e => {
-            if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                selectFolder(node.path);
-            } else if (e.key === "ArrowRight" && node.children?.length) {
-                e.preventDefault();
-                if (!expandedPaths.has(node.path)) toggleFolder(wrapper, node.path);
-            } else if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                if (expandedPaths.has(node.path)) toggleFolder(wrapper, node.path);
-            }
-        });
+  /* =========================================
+     SELECT FOLDER
+  ========================================= */
 
-        wrapper.append(row, children);
-        return wrapper;
+  function _selectFolder(path) {
+    _activePath = path || "ALL";
+    _syncSelection();
+    if (typeof _onFolderSelected === "function") {
+      _onFolderSelected(_activePath);
+    }
+  }
+
+  /* =========================================
+     SYNC ACTIVE SELECTION IN DOM
+  ========================================= */
+
+  function _syncSelection() {
+    if (!_container) return;
+
+    _container.querySelectorAll(".folder-row").forEach(r => {
+      r.classList.remove("active");
+      r.setAttribute("aria-selected", "false");
+    });
+
+    if (_activePath === "ALL") {
+      const allRow = _container.querySelector(".folder-row-all");
+      if (allRow) {
+        allRow.classList.add("active");
+        allRow.setAttribute("aria-selected", "true");
+      }
+      return;
     }
 
-    /* =========================================
-       TOGGLE FOLDER
-    ========================================= */
+    const target = _container.querySelector(
+      `.folder-row[data-path="${CSS.escape(_activePath)}"]`
+    );
+    if (!target) return;
 
-    function toggleFolder(element, path) {
+    target.classList.add("active");
+    target.setAttribute("aria-selected", "true");
+    _expandAncestors(target);
+  }
 
-        const expanded = element.classList.contains("expanded");
+  /* =========================================
+     EXPAND ANCESTOR NODES
+  ========================================= */
 
-        element.classList.toggle("expanded",  !expanded);
-        element.classList.toggle("collapsed",  expanded);
-
-        if (expanded) {
-            expandedPaths.delete(path);
-        } else {
-            expandedPaths.add(path);
-        }
+  function _expandAncestors(row) {
+    let node = row.closest(".folder-node");
+    while (node) {
+      const path = node.dataset.path;
+      if (path) _expandedPaths.add(path);
+      node.classList.remove("collapsed");
+      node.classList.add("expanded");
+      if (node.hasAttribute("aria-expanded")) {
+        node.setAttribute("aria-expanded", "true");
+      }
+      node = node.parentElement?.closest(".folder-node");
     }
+  }
 
-    /* =========================================
-       SELECT FOLDER
-    ========================================= */
+  /* =========================================
+     KEYBOARD FOCUS HELPERS
+  ========================================= */
 
-    function selectFolder(path) {
+  function _focusNext(currentRow) {
+    const rows = Array.from(
+      _container.querySelectorAll(".folder-row:not([style*='display: none'])")
+    );
+    const idx = rows.indexOf(currentRow);
+    if (idx < rows.length - 1) rows[idx + 1].focus();
+  }
 
-        activePath = path || "ALL";
-        refreshSelection();
+  function _focusPrev(currentRow) {
+    const rows = Array.from(
+      _container.querySelectorAll(".folder-row:not([style*='display: none'])")
+    );
+    const idx = rows.indexOf(currentRow);
+    if (idx > 0) rows[idx - 1].focus();
+  }
 
-        if (typeof onFolderSelected === "function") {
-            onFolderSelected(activePath);
-        }
-    }
+  /* =========================================
+     EXPAND / COLLAPSE ALL
+     Bound by app.js expandAllBtn / collapseAllBtn
+  ========================================= */
 
-    /* =========================================
-       REFRESH SELECTION
-    ========================================= */
+  function expandAll() {
+    if (!_container) return;
+    _container.querySelectorAll(".folder-node").forEach(node => {
+      node.classList.remove("collapsed");
+      node.classList.add("expanded");
+      if (node.hasAttribute("aria-expanded")) node.setAttribute("aria-expanded", "true");
+      if (node.dataset.path) _expandedPaths.add(node.dataset.path);
+    });
+  }
 
-    function refreshSelection() {
+  function collapseAll() {
+    if (!_container) return;
+    _container.querySelectorAll(".folder-node").forEach(node => {
+      if (node.dataset.path === _activePath) return;
+      node.classList.remove("expanded");
+      node.classList.add("collapsed");
+      if (node.hasAttribute("aria-expanded")) node.setAttribute("aria-expanded", "false");
+      if (node.dataset.path) _expandedPaths.delete(node.dataset.path);
+    });
+    _syncSelection();
+  }
 
-        if (!container) return;
+  /* =========================================
+     PATH ACCESSORS
+     Used by app.js to sync tree with view state
+  ========================================= */
 
-        container
-            .querySelectorAll(".folder-row")
-            .forEach(row => row.classList.remove("active"));
+  function setActivePath(path) {
+    _activePath = path || "ALL";
+    _syncSelection();
+  }
 
-        if (activePath === "ALL") {
-            const first = container.querySelector(".folder-row");
-            if (first) first.classList.add("active");
-            return;
-        }
+  function getActivePath() {
+    return _activePath;
+  }
 
-        const target = container.querySelector(
-            `.folder-row[data-path="${CSS.escape(activePath)}"]`
-        );
+  /* =========================================
+     PUBLIC API
+  ========================================= */
 
-        if (!target) return;
-
-        target.classList.add("active");
-        expandParentFolders(target);
-    }
-
-    /* =========================================
-       EXPAND PARENTS
-    ========================================= */
-
-    function expandParentFolders(row) {
-
-        let node = row.closest(".folder-node");
-
-        while (node) {
-            const path = node.dataset.path;
-            if (path) expandedPaths.add(path);
-            node.classList.remove("collapsed");
-            node.classList.add("expanded");
-            node = node.parentElement?.closest(".folder-node");
-        }
-    }
-
-    /* =========================================
-       EXPAND ALL
-    ========================================= */
-
-    function expandAll() {
-
-        if (!container) return;
-
-        container.querySelectorAll(".folder-node").forEach(node => {
-            node.classList.remove("collapsed");
-            node.classList.add("expanded");
-            if (node.dataset.path) expandedPaths.add(node.dataset.path);
-        });
-    }
-
-    /* =========================================
-       COLLAPSE ALL
-    ========================================= */
-
-    function collapseAll() {
-
-        if (!container) return;
-
-        container.querySelectorAll(".folder-node").forEach(node => {
-            const path = node.dataset.path;
-            if (path === activePath) return;
-            node.classList.remove("expanded");
-            node.classList.add("collapsed");
-            expandedPaths.delete(path);
-        });
-
-        refreshSelection();
-    }
-
-    /* =========================================
-       ACTIVE PATH
-    ========================================= */
-
-    function setActivePath(path) {
-        activePath = path || "ALL";
-        refreshSelection();
-    }
-
-    function getActivePath() {
-        return activePath;
-    }
-
-    /* =========================================
-       API
-    ========================================= */
-
-    return {
-        init,
-        render,
-        expandAll,
-        collapseAll,
-        setActivePath,
-        getActivePath
-    };
+  return {
+    init,
+    render,
+    expandAll,
+    collapseAll,
+    setActivePath,
+    getActivePath,
+  };
 
 })();
