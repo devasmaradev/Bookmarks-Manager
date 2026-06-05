@@ -113,14 +113,28 @@ function _bindEvents() {
   const domainsCard    = _el("domainsCard");
   const duplicatesCard = _el("duplicatesCard");
 
-  domainsCard.addEventListener("click",   _showDomains);
-  duplicatesCard.addEventListener("click", _showDuplicates);
+  domainsCard.addEventListener("click", () => {
+    if (!_bookmarks.length) return;
+    _showDomains();
+  });
+  duplicatesCard.addEventListener("click", () => {
+    if (!_bookmarks.length) return;
+    _showDuplicates();
+  });
 
   domainsCard.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _showDomains(); }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (!_bookmarks.length) return;
+      _showDomains();
+    }
   });
   duplicatesCard.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); _showDuplicates(); }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (!_bookmarks.length) return;
+      _showDuplicates();
+    }
   });
 
   /* View controls */
@@ -238,6 +252,23 @@ function _updateAddBookmarkBtn() {
   btn.title    = isAll ? (I18n.getLang() === "id"
     ? "Pilih folder terlebih dahulu untuk menambahkan bookmark"
     : "Select a folder first to add a bookmark") : "";
+}
+
+function _updateStatCardState() {
+  const hasData       = _bookmarks.length > 0;
+  const domainsCard   = _el("domainsCard");
+  const duplicatesCard = _el("duplicatesCard");
+
+  if (domainsCard) {
+    domainsCard.classList.toggle("stat-card-disabled", !hasData);
+    domainsCard.setAttribute("aria-disabled", String(!hasData));
+    domainsCard.tabIndex = hasData ? 0 : -1;
+  }
+  if (duplicatesCard) {
+    duplicatesCard.classList.toggle("stat-card-disabled", !hasData);
+    duplicatesCard.setAttribute("aria-disabled", String(!hasData));
+    duplicatesCard.tabIndex = hasData ? 0 : -1;
+  }
 }
 
 /* =========================================
@@ -518,6 +549,7 @@ function _updateImportButtonVisibility() {
   if (btnClear)  btnClear.hidden  = !hasData;
 
   if (hasData) _updateAddBookmarkBtn();
+  _updateStatCardState();
 }
 
 /* =========================================

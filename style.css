@@ -973,6 +973,16 @@ label.btn {
   box-shadow: 0 0 0 3px var(--focus-ring);
   outline: none;
 }
+.stat-card-disabled {
+  cursor: default;
+  opacity: 0.45;
+  pointer-events: none;
+}
+.stat-card-disabled:hover {
+  border-color: var(--border);
+  box-shadow: var(--shadow-xs);
+  transform: none;
+}
 
 .stat-icon-wrap {
   width: 40px;
