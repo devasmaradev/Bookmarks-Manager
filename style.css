@@ -1272,6 +1272,7 @@ label.btn {
 .bookmark-actions {
   display: flex;
   align-items: center;
+  gap: 4px;
   opacity: 0;
   flex-shrink: 0;
   transition: opacity var(--transition);
@@ -1298,6 +1299,34 @@ label.btn {
 .bookmark-open-btn:hover {
   background: var(--accent);
   color: #fff;
+}
+
+/* Edit */
+.bookmark-edit-btn {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.bookmark-edit-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Delete */
+.bookmark-delete-btn {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.bookmark-delete-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.bookmark-edit-btn svg,
+.bookmark-delete-btn svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* =========================================
@@ -2321,11 +2350,10 @@ label.btn {
 }
 
 /* =========================================
-   BOOKMARK ITEM — CRUD ACTIONS
-   Edit & Delete buttons shown on hover/active
+   BOOKMARK ITEM ACTIONS
 ========================================= */
 
-.bookmark-item-actions-crud {
+.bookmark-actions {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -2333,16 +2361,25 @@ label.btn {
   flex-shrink: 0;
   transition: opacity var(--transition);
 }
-.bookmark-item:hover .bookmark-item-actions-crud,
-.bookmark-item.active .bookmark-item-actions-crud {
+
+.bookmark-item:hover .bookmark-actions,
+.bookmark-item.active .bookmark-actions {
   opacity: 1;
 }
 
+.bookmark-item-actions-crud {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bookmark-open-btn,
 .bookmark-edit-btn,
 .bookmark-delete-btn {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
   border-radius: var(--radius-xs);
   border: none;
   cursor: pointer;
@@ -2351,26 +2388,42 @@ label.btn {
   justify-content: center;
   transition: background var(--transition), color var(--transition);
 }
-.bookmark-edit-btn svg,
-.bookmark-delete-btn svg {
-  width: 13px;
-  height: 13px;
-}
-.bookmark-edit-btn {
+
+.bookmark-open-btn {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+.bookmark-open-btn:hover,
 .bookmark-edit-btn:hover {
   background: var(--accent);
   color: #fff;
 }
+
+.bookmark-edit-btn {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .bookmark-delete-btn {
   background: var(--danger-soft);
   color: var(--danger);
 }
+
 .bookmark-delete-btn:hover {
   background: var(--danger);
   color: #fff;
+}
+
+.bookmark-open-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bookmark-edit-btn svg,
+.bookmark-delete-btn svg {
+  width: 13px;
+  height: 13px;
 }
 
 /* =========================================
