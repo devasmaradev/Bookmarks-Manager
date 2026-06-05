@@ -24,6 +24,8 @@ let _searchDebounce   = null;
 let _crudTarget       = null; /* bookmark being edited, or null for add */
 let _deleteTarget     = null; /* bookmark pending delete confirmation */
 let _hasUnsavedChanges = false;
+let _previousFolder    = "ALL";
+let _activeDomain      = null;   /* domain aktif saat view = "domain-filter" */
 
 /* =========================================
    BOOTSTRAP
@@ -87,12 +89,6 @@ function _bindEvents() {
   });
 
   /* Topbar actions */
-
-  /* Export JSON button is optional */
-  const btnExportJson = _el("btnExportJson");
-  if (btnExportJson) {
-    btnExportJson.addEventListener("click", _exportJSON);
-  }
 
   const btnExportHtml = _el("btnExportHtml");
   if (btnExportHtml) {
@@ -177,55 +173,28 @@ function _bindEvents() {
   });
 
   /* Folder tree */
-  FolderTree.init(_el("folderTree"), _onFolderSelected);
+  FolderTree.init(_el("folderTree"), _onFolderSelected, _onTreeStateChange);
+
+  /* Persist scroll positions */
+  let _sidebarScrollTimer  = null;
+  let _contentScrollTimer  = null;
+
+  _el("folderTree").addEventListener("scroll", () => {
+    clearTimeout(_sidebarScrollTimer);
+    _sidebarScrollTimer = setTimeout(() => {
+      StorageManager.setMeta("sidebarScroll", _el("folderTree").scrollTop).catch(() => {});
+    }, 150);
+  });
+
+  _el("bookmarkContainer").addEventListener("scroll", () => {
+    clearTimeout(_contentScrollTimer);
+    _contentScrollTimer = setTimeout(() => {
+      StorageManager.setMeta("contentScroll", _el("bookmarkContainer").scrollTop).catch(() => {});
+    }, 150);
+  });
 
   /* Global keyboard shortcuts */
   document.addEventListener("keydown", _handleKeyboard);
-}
-
-/* =========================================
-   UNSAVED CHANGES INDICATOR
-   Called after any mutating action:
-   add, edit, delete bookmark.
-   Cleared after export.
-========================================= */
-
-function _markUnsaved() {
-  _hasUnsavedChanges = true;
-  StorageManager.setMeta("hasUnsaved", true).catch(() => {});
-  _applyUnsavedUI(true);
-}
-
-function _clearUnsaved() {
-  _hasUnsavedChanges = false;
-  StorageManager.setMeta("hasUnsaved", false).catch(() => {});
-  _applyUnsavedUI(false);
-}
-
-function _applyUnsavedUI(hasUnsaved) {
-  /* Banner */
-  const banner = _el("unsavedBanner");
-  if (banner) {
-    if (hasUnsaved) {
-      _el("unsavedBannerText").textContent = I18n.t("unsaved.banner");
-      _el("unsavedBannerDismiss").title    = I18n.t("unsaved.dismiss");
-      banner.hidden = false;
-    } else {
-      banner.hidden = true;
-    }
-  }
-
-  /* Dot on Export HTML button */
-  const btnExport = _el("btnExportHtml");
-  if (btnExport) {
-    btnExport.querySelectorAll(".btn-unsaved-dot").forEach(d => d.remove());
-    if (hasUnsaved && !btnExport.querySelector(".btn-unsaved-dot")) {
-      const dot = document.createElement("span");
-      dot.className = "btn-unsaved-dot";
-      dot.setAttribute("aria-hidden", "true");
-      btnExport.appendChild(dot);
-    }
-  }
 }
 
 /* =========================================
@@ -234,14 +203,21 @@ function _applyUnsavedUI(hasUnsaved) {
 ========================================= */
 
 function _onFolderSelected(path) {
-  _activeFolder = path;
-  _currentView  = "bookmarks";
+  _activeFolder  = path;
+  _currentView   = "bookmarks";
+  _activeDomain  = null;
   _updateAddBookmarkBtn();
   _updateViewBadge(I18n.t("badge.bookmarks"));
   _el("btnBackToBookmarks").hidden = true;
   _renderBookmarks();
   _closeMobileSidebar();
   StorageManager.setMeta("activeFolder", path).catch(() => {});
+  StorageManager.setMeta("currentView", "bookmarks").catch(() => {});
+  StorageManager.setMeta("activeDomain", null).catch(() => {});
+}
+
+function _onTreeStateChange(expandedPaths) {
+  StorageManager.setMeta("expandedPaths", expandedPaths).catch(() => {});
 }
 
 function _updateAddBookmarkBtn() {
@@ -351,8 +327,9 @@ function _closeDetailsPanel() {
    CONFIRM DIALOG
 ========================================= */
 
-function _showDialog(descKey = "dialog.clearDesc") {
+function _showDialog(descKey = "dialog.clearDesc", confirmKey = "action.confirmDelete") {
   _el("dialogDesc").textContent    = I18n.t(descKey);
+  _el("dialogConfirm").textContent = I18n.t(confirmKey);
   _el("confirmDialog").hidden      = false;
   document.body.style.overflow     = "hidden";
   _el("dialogCancel").focus();
@@ -496,10 +473,14 @@ async function _handleImport(event) {
     _folderTree       = result.tree;
     _selectedBookmark = null;
     _activeFolder     = "ALL";
+    _activeDomain     = null;
 
     await StorageManager.saveBookmarks(_bookmarks);
     await StorageManager.setMeta("folderTree", _folderTree);
     await StorageManager.setMeta("activeFolder", "ALL");
+    await StorageManager.setMeta("currentView", "bookmarks");
+    await StorageManager.setMeta("activeDomain", null);
+    await StorageManager.setMeta("previousFolder", "ALL");
 
     _updateStats();
     FolderTree.setActivePath("ALL");
@@ -574,10 +555,68 @@ async function _loadSavedData() {
   _hasUnsavedChanges = savedUnsaved === true;
   _applyUnsavedUI(_hasUnsavedChanges);
 
+  const savedFolder       = await StorageManager.getMeta("activeFolder");
+  const savedExpandedPaths = await StorageManager.getMeta("expandedPaths");
+
+  if (savedFolder && savedFolder !== "ALL" && _bookmarks.length) {
+    const folderExists = _bookmarks.some(
+      b => b.path === savedFolder || b.path.startsWith(savedFolder + "/")
+    );
+    _activeFolder   = folderExists ? savedFolder : "ALL";
+    _previousFolder = _activeFolder;
+  } else {
+    _activeFolder   = "ALL";
+    _previousFolder = "ALL";
+  }
+
+  if (Array.isArray(savedExpandedPaths) && savedExpandedPaths.length) {
+    FolderTree.setExpandedPaths(savedExpandedPaths);
+  }
+
+  const savedView          = await StorageManager.getMeta("currentView");
+  const savedActiveDomain  = await StorageManager.getMeta("activeDomain");
+  const savedPreviousFolder = await StorageManager.getMeta("previousFolder");
+  const savedSidebarScroll = await StorageManager.getMeta("sidebarScroll");
+  const savedContentScroll = await StorageManager.getMeta("contentScroll");
+
+  if (savedPreviousFolder) {
+    _previousFolder = savedPreviousFolder;
+  }
+
   _updateStats();
   FolderTree.render(_folderTree);
-  _renderBookmarks();
+
+  /* Restore view state */
+  if (_bookmarks.length && savedView && savedView !== "bookmarks") {
+    if (savedView === "domains") {
+      _showDomains();
+    } else if (savedView === "domain-filter" && savedActiveDomain) {
+      _activeDomain = savedActiveDomain;
+      _showDomains();
+      /* Delay render agar domain list muncul dulu sebelum filter */
+      requestAnimationFrame(() => _filterByDomain(savedActiveDomain));
+    } else if (savedView === "duplicates") {
+      _showDuplicates();
+    } else {
+      FolderTree.setActivePath(_activeFolder);
+      _renderBookmarks();
+    }
+  } else {
+    FolderTree.setActivePath(_activeFolder);
+    _renderBookmarks();
+  }
+
   _updateImportButtonVisibility();
+
+  /* Restore scroll positions setelah render selesai */
+  requestAnimationFrame(() => {
+    if (savedSidebarScroll) {
+      _el("folderTree").scrollTop = savedSidebarScroll;
+    }
+    if (savedContentScroll) {
+      _el("bookmarkContainer").scrollTop = savedContentScroll;
+    }
+  });
 }
 
 /* =========================================
@@ -619,12 +658,15 @@ function _renderBookmarks() {
 
 function _backToBookmarks() {
   _currentView  = "bookmarks";
-  _activeFolder = "ALL";
+  _activeDomain = null;
+  _activeFolder = _previousFolder || "ALL";
   _el("btnBackToBookmarks").hidden = true;
   _updateViewBadge(I18n.t("badge.bookmarks"));
-  FolderTree.setActivePath("ALL");
+  FolderTree.setActivePath(_activeFolder);
   _renderBookmarks();
-  StorageManager.setMeta("activeFolder", "ALL").catch(() => {});
+  StorageManager.setMeta("activeFolder", _activeFolder).catch(() => {});
+  StorageManager.setMeta("currentView", "bookmarks").catch(() => {});
+  StorageManager.setMeta("activeDomain", null).catch(() => {});
 }
 
 function _updateViewBadge(label) {
@@ -1024,7 +1066,7 @@ async function _handleCrudSave() {
 function _deleteBookmark(bookmark) {
   if (!bookmark?.id) return;
   _deleteTarget = bookmark;
-  _showDialog("dialog.deleteDesc");
+  _showDialog("dialog.deleteDesc", "action.delete");
 }
 
 async function _executeDeleteBookmark(bookmark) {
@@ -1069,7 +1111,11 @@ async function _executeDeleteBookmark(bookmark) {
 ========================================= */
 
 function _showDomains() {
-  _currentView = "domains";
+  _currentView    = "domains";
+  _activeDomain   = null;
+  _previousFolder = _activeFolder;
+
+  FolderTree.setActivePath(null);
 
   const domains = BookmarkParser.getDomains(_bookmarks);
 
@@ -1077,6 +1123,10 @@ function _showDomains() {
   _el("bookmarkCount").textContent     = I18n.formatCount(domains.length, "domain");
   _el("btnBackToBookmarks").hidden     = false;
   _updateViewBadge(I18n.t("badge.domains"));
+
+  StorageManager.setMeta("currentView", "domains").catch(() => {});
+  StorageManager.setMeta("activeDomain", null).catch(() => {});
+  StorageManager.setMeta("previousFolder", _previousFolder).catch(() => {});
 
   _renderDomainList(domains);
 }
@@ -1120,11 +1170,15 @@ function _renderDomainList(domains) {
 
 function _filterByDomain(domain) {
   const filtered = _bookmarks.filter(b => BookmarkParser.getDomain(b.url) === domain);
+  _activeDomain  = domain;
 
   _el("currentFolderName").textContent = domain;
   _el("bookmarkCount").textContent     = I18n.formatCount(filtered.length, "item");
   _el("btnBackToBookmarks").hidden     = false;
   _updateViewBadge(I18n.t("badge.domain"));
+
+  StorageManager.setMeta("currentView", "domain-filter").catch(() => {});
+  StorageManager.setMeta("activeDomain", domain).catch(() => {});
 
   _renderBookmarkList(filtered);
 }
@@ -1134,7 +1188,11 @@ function _filterByDomain(domain) {
 ========================================= */
 
 function _showDuplicates() {
-  _currentView = "duplicates";
+  _currentView    = "duplicates";
+  _activeDomain   = null;
+  _previousFolder = _activeFolder;
+
+  FolderTree.setActivePath(null);
 
   const duplicates = BookmarkParser.getDuplicateURLs(_bookmarks);
 
@@ -1142,6 +1200,9 @@ function _showDuplicates() {
   _el("bookmarkCount").textContent     = I18n.formatCount(duplicates.length, "group");
   _el("btnBackToBookmarks").hidden     = false;
   _updateViewBadge(I18n.t("badge.duplicates"));
+
+  StorageManager.setMeta("currentView", "duplicates").catch(() => {});
+  StorageManager.setMeta("previousFolder", _previousFolder).catch(() => {});
 
   _renderDuplicateGroups(duplicates);
 }
@@ -1402,7 +1463,7 @@ function _exportHTML() {
 
 function _requestClearData() {
   _deleteTarget = null;
-  _showDialog("dialog.clearDesc");
+  _showDialog("dialog.clearDesc", "action.confirmClear");
 }
 
 async function _executeClearData() {
@@ -1411,7 +1472,13 @@ async function _executeClearData() {
     await StorageManager.clearBookmarks();
     await StorageManager.removeMeta("folderTree");
     await StorageManager.removeMeta("activeFolder");
+    await StorageManager.removeMeta("expandedPaths");
     await StorageManager.removeMeta("hasUnsaved");
+    await StorageManager.removeMeta("currentView");
+    await StorageManager.removeMeta("activeDomain");
+    await StorageManager.removeMeta("previousFolder");
+    await StorageManager.removeMeta("sidebarScroll");
+    await StorageManager.removeMeta("contentScroll");
   } catch (err) {
     console.error("[app] clearData error:", err);
   } finally {

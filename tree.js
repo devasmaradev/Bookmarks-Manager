@@ -17,6 +17,7 @@ const FolderTree = (() => {
   let _container        = null;
   let _activePath       = "ALL";
   let _onFolderSelected = null;
+  let _onStateChange    = null;
 
   const _expandedPaths = new Set();
 
@@ -25,9 +26,10 @@ const FolderTree = (() => {
      Called by app.js bindEvents()
   ========================================= */
 
-  function init(containerElement, callback) {
+  function init(containerElement, callback, onStateChange) {
     _container        = containerElement;
     _onFolderSelected = callback;
+    _onStateChange    = onStateChange || null;
   }
 
   /* =========================================
@@ -221,6 +223,7 @@ const FolderTree = (() => {
       wrapper.setAttribute("aria-expanded", String(!expanded));
     }
     expanded ? _expandedPaths.delete(path) : _expandedPaths.add(path);
+    _notifyStateChange();
   }
 
   /* =========================================
@@ -317,6 +320,7 @@ const FolderTree = (() => {
       if (node.hasAttribute("aria-expanded")) node.setAttribute("aria-expanded", "true");
       if (node.dataset.path) _expandedPaths.add(node.dataset.path);
     });
+    _notifyStateChange();
   }
 
   function collapseAll() {
@@ -329,6 +333,18 @@ const FolderTree = (() => {
       if (node.dataset.path) _expandedPaths.delete(node.dataset.path);
     });
     _syncSelection();
+    _notifyStateChange();
+  }
+
+  function _notifyStateChange() {
+    if (typeof _onStateChange === "function") {
+      _onStateChange([..._expandedPaths]);
+    }
+  }
+
+  function setExpandedPaths(paths) {
+    _expandedPaths.clear();
+    if (Array.isArray(paths)) paths.forEach(p => _expandedPaths.add(p));
   }
 
   /* =========================================
@@ -337,6 +353,16 @@ const FolderTree = (() => {
   ========================================= */
 
   function setActivePath(path) {
+    if (path === null) {
+      /* Clear all active states tanpa set path baru */
+      _activePath = null;
+      if (!_container) return;
+      _container.querySelectorAll(".folder-row").forEach(r => {
+        r.classList.remove("active");
+        r.setAttribute("aria-selected", "false");
+      });
+      return;
+    }
     _activePath = path || "ALL";
     _syncSelection();
   }
@@ -356,6 +382,7 @@ const FolderTree = (() => {
     collapseAll,
     setActivePath,
     getActivePath,
+    setExpandedPaths,
   };
 
 })();
