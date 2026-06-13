@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Bookmark Manager — Organize, search, and manage your browser bookmarks">
   <title>Bookmark Manager — Organize Your Browser Bookmarks</title>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap">
@@ -13,11 +12,9 @@
 </head>
 <body>
 
-  <!-- ===================== TOPBAR ===================== -->
+  <!-- TOPBAR -->
   <header class="topbar" role="banner">
-
     <div class="topbar-left">
-      <!-- Mobile sidebar toggle -->
       <button
         id="mobileMenuBtn"
         class="btn-icon-only mobile-menu-btn"
@@ -28,8 +25,6 @@
           <span></span><span></span><span></span>
         </span>
       </button>
-
-      <!-- Brand -->
       <div class="brand" role="img" aria-label="Bookmark Manager">
         <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -40,8 +35,6 @@
     </div>
 
     <div class="topbar-right" role="toolbar" aria-label="Application controls">
-
-      <!-- Import -->
       <label
         id="topbarImportBtn"
         class="btn btn-primary topbar-btn"
@@ -59,7 +52,6 @@
           aria-label="Choose bookmark HTML file">
       </label>
 
-      <!-- Add Bookmark -->
       <button id="btnAddBookmark" class="btn btn-secondary topbar-btn"
         aria-label="Add bookmark manually">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -70,7 +62,6 @@
         <span class="btn-label" data-i18n="action.addBookmark">Add Bookmark</span>
       </button>
 
-      <!-- Export JSON -->
       <button id="btnExportHtml" class="btn btn-secondary topbar-btn"
         aria-label="Export bookmarks as HTML">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -81,7 +72,6 @@
         <span class="btn-label" data-i18n="action.exportHtml">Export HTML</span>
       </button>
 
-      <!-- Clear -->
       <button id="btnClearData" class="btn btn-danger topbar-btn"
         aria-label="Clear all bookmark data">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -94,7 +84,6 @@
 
       <div class="topbar-divider" aria-hidden="true"></div>
 
-      <!-- Language toggle -->
       <button id="btnLang" class="btn btn-ghost topbar-btn" aria-label="Switch language">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -105,9 +94,7 @@
         <span class="btn-label" id="langLabel">EN</span>
       </button>
 
-      <!-- Theme toggle -->
       <button id="btnTheme" class="btn btn-ghost topbar-btn" aria-label="Toggle color theme">
-        <!-- Sun icon — shown in dark mode -->
         <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="5"/>
@@ -120,18 +107,16 @@
           <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
           <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
         </svg>
-        <!-- Moon icon — shown in light mode -->
         <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
         <span class="btn-label" id="themeLabel" data-i18n="action.darkMode">Dark</span>
       </button>
-
     </div>
   </header>
 
-  <!-- ===================== UNSAVED BANNER ===================== -->
+  <!-- UNSAVED BANNER -->
   <div id="unsavedBanner" class="unsaved-banner" hidden aria-live="polite">
     <svg class="unsaved-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -149,16 +134,13 @@
     </button>
   </div>
 
-  <!-- Mobile overlay backdrop -->
   <div id="mobileOverlay" class="mobile-overlay" aria-hidden="true"></div>
 
-  <!-- ===================== MAIN LAYOUT ===================== -->
+  <!-- MAIN LAYOUT -->
   <div class="main-layout">
 
-    <!-- ============= SIDEBAR ============= -->
+    <!-- SIDEBAR -->
     <aside id="sidebar" class="sidebar" role="complementary" aria-label="Folder navigation">
-
-      <!-- Search field -->
       <div class="sidebar-search">
         <div class="search-field">
           <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -185,7 +167,6 @@
         </div>
       </div>
 
-      <!-- Folders header -->
       <div class="sidebar-folders-header">
         <span class="sidebar-section-label" data-i18n="sidebar.folders">Folders</span>
         <div class="sidebar-actions">
@@ -214,21 +195,17 @@
         </div>
       </div>
 
-      <!-- Folder tree — populated by tree.js render() -->
       <nav id="folderTree" class="folder-tree" role="tree" aria-label="Folder tree">
         <div class="empty-state small">
           <span data-i18n="empty.noBookmarks">No bookmarks available</span>
         </div>
       </nav>
-
     </aside>
 
-    <!-- ============= CONTENT ============= -->
+    <!-- CONTENT -->
     <main class="content" role="main">
 
-      <!-- Stats grid -->
       <div class="stats-grid" role="region" aria-label="Statistics">
-
         <div class="stat-card">
           <div class="stat-icon-wrap" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -255,8 +232,7 @@
           </div>
         </div>
 
-        <button id="domainsCard" class="stat-card stat-card-action"
-          aria-label="View unique domains">
+        <button id="domainsCard" class="stat-card stat-card-action" aria-label="View unique domains">
           <div class="stat-icon-wrap" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -276,8 +252,7 @@
           </svg>
         </button>
 
-        <button id="duplicatesCard" class="stat-card stat-card-action"
-          aria-label="View duplicate URLs">
+        <button id="duplicatesCard" class="stat-card stat-card-action" aria-label="View duplicate URLs">
           <div class="stat-icon-wrap" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -295,10 +270,8 @@
             <polyline points="12 5 19 12 12 19"/>
           </svg>
         </button>
+      </div>
 
-      </div><!-- .stats-grid -->
-
-      <!-- View header -->
       <div class="view-header">
         <div class="view-header-left">
           <button id="btnBackToBookmarks"
@@ -313,18 +286,13 @@
             <span data-i18n="action.back">Back</span>
           </button>
           <div class="view-title-block">
-            <h2 id="currentFolderName" class="view-title" data-i18n="view.allBookmarks">
-              All Bookmarks
-            </h2>
+            <h2 id="currentFolderName" class="view-title" data-i18n="view.allBookmarks">All Bookmarks</h2>
             <span id="bookmarkCount" class="view-count" aria-live="polite">0 items</span>
           </div>
         </div>
-        <span id="viewBadge" class="view-badge" aria-live="polite" data-i18n="badge.bookmarks">
-          Bookmarks
-        </span>
+        <span id="viewBadge" class="view-badge" aria-live="polite" data-i18n="badge.bookmarks">Bookmarks</span>
       </div>
 
-      <!-- Bookmark list — populated by app.js -->
       <div id="bookmarkContainer"
         class="bookmark-list"
         role="list"
@@ -340,9 +308,7 @@
             </svg>
           </div>
           <p class="empty-title" data-i18n="empty.noBookmarksTitle">No bookmarks yet</p>
-          <p class="empty-desc" data-i18n="empty.noBookmarksDesc">
-            Import a bookmark HTML file to get started
-          </p>
+          <p class="empty-desc" data-i18n="empty.noBookmarksDesc">Import a bookmark HTML file to get started</p>
           <label id="emptyImportBtn" class="btn btn-primary empty-cta" role="button" tabindex="0"
             aria-label="Import bookmarks file">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -357,10 +323,9 @@
           </label>
         </div>
       </div>
-
     </main>
 
-    <!-- ============= DETAILS PANEL ============= -->
+    <!-- DETAILS PANEL -->
     <aside id="detailsPanel" class="details-panel"
       role="complementary" aria-label="Bookmark details">
       <div class="details-header">
@@ -375,40 +340,31 @@
           </svg>
         </button>
       </div>
-      <!-- Content populated by app.js _showBookmarkDetails() -->
       <div id="bookmarkDetails" class="details-body">
         <div class="empty-state">
           <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M15 15l-2 5L9 9l11 4-5 2z"/>
           </svg>
-          <p class="empty-hint" data-i18n="empty.selectBookmark">
-            Select a bookmark to view details
-          </p>
+          <p class="empty-hint" data-i18n="empty.selectBookmark">Select a bookmark to view details</p>
         </div>
       </div>
     </aside>
 
-  </div><!-- .main-layout -->
-
-  <!-- ===================== TOAST ===================== -->
-  <div id="toastContainer"
-    class="toast-container"
-    role="status"
-    aria-live="polite"
-    aria-atomic="true">
   </div>
 
-  <!-- ===================== LOADING OVERLAY ===================== -->
-  <div id="loadingOverlay" class="loading-overlay" hidden
-    role="status" aria-label="Loading">
+  <!-- TOAST -->
+  <div id="toastContainer" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- LOADING OVERLAY -->
+  <div id="loadingOverlay" class="loading-overlay" hidden role="status" aria-label="Loading">
     <div class="loading-card">
       <div class="loading-spinner" aria-hidden="true"></div>
       <p class="loading-text" data-i18n="loading.default">Loading…</p>
     </div>
   </div>
 
-  <!-- ===================== CONFIRM DIALOG ===================== -->
+  <!-- CONFIRM DIALOG -->
   <div id="confirmDialog"
     class="dialog-backdrop"
     hidden
@@ -425,24 +381,18 @@
           <line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
       </div>
-      <h4 id="dialogTitle" class="dialog-title" data-i18n="dialog.confirmTitle">
-        Are you sure?
-      </h4>
+      <h4 id="dialogTitle" class="dialog-title" data-i18n="dialog.confirmTitle">Are you sure?</h4>
       <p id="dialogDesc" class="dialog-desc" data-i18n="dialog.clearDesc">
         This will permanently delete bookmark data and cannot be undone.
       </p>
       <div class="dialog-actions">
-        <button id="dialogCancel" class="btn btn-ghost" data-i18n="action.cancel">
-          Cancel
-        </button>
-        <button id="dialogConfirm" class="btn btn-danger">
-          Delete All
-        </button>
+        <button id="dialogCancel" class="btn btn-ghost" data-i18n="action.cancel">Cancel</button>
+        <button id="dialogConfirm" class="btn btn-danger">Delete All</button>
       </div>
     </div>
   </div>
 
-  <!-- ===================== CRUD MODAL ===================== -->
+  <!-- CRUD MODAL -->
   <div id="crudModal"
     class="crud-modal-backdrop"
     hidden
@@ -470,9 +420,7 @@
     </div>
   </div>
 
-  <!-- ===================== TEMPLATES ===================== -->
-
-  <!-- Bookmark item template — cloned by app.js _createBookmarkNode() -->
+  <!-- TEMPLATES -->
   <template id="bookmarkTemplate">
     <div class="bookmark-item" tabindex="0" role="listitem">
       <div class="bookmark-favicon-wrap">
@@ -524,7 +472,6 @@
     </div>
   </template>
 
-  <!-- Domain item template — cloned by app.js _renderDomainList() -->
   <template id="domainItemTemplate">
     <div class="domain-item" tabindex="0" role="button">
       <div class="domain-item-favicon-wrap">
@@ -543,7 +490,6 @@
     </div>
   </template>
 
-  <!-- Scripts — order matters: i18n → storage → parser → tree → app -->
   <script src="i18n.js"></script>
   <script src="storage.js"></script>
   <script src="parser.js"></script>

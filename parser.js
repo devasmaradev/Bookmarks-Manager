@@ -1,11 +1,3 @@
-/*
-=========================================
-  parser.js — Bookmark Manager
-  Parses Netscape Bookmark HTML format.
-  Provides search, domain, duplicate utils.
-=========================================
-*/
-
 "use strict";
 
 const BookmarkParser = (() => {
@@ -23,7 +15,6 @@ const BookmarkParser = (() => {
 
   /* =========================================
      PARSE HTML FILE
-     Entry point called by app.js handleImport()
   ========================================= */
 
   function parse(htmlText) {
@@ -31,7 +22,7 @@ const BookmarkParser = (() => {
       return { bookmarks: [], tree: _folderNode("ROOT", "") };
     }
 
-    const doc      = new DOMParser().parseFromString(htmlText, "text/html");
+    const doc       = new DOMParser().parseFromString(htmlText, "text/html");
     const bookmarks = [];
     const rootTree  = _folderNode("ROOT", "");
     const rootDL    = doc.querySelector("dl");
@@ -49,8 +40,7 @@ const BookmarkParser = (() => {
   ========================================= */
 
   function _walkDL(dlNode, currentPath, treeNode, bookmarks) {
-    const children = Array.from(dlNode.children);
-    children.forEach((node, i) => {
+    Array.from(dlNode.children).forEach((node, i, children) => {
       if (node.tagName?.toUpperCase() === "DT") {
         _processDT(node, children, i, currentPath, treeNode, bookmarks);
       }
@@ -104,7 +94,6 @@ const BookmarkParser = (() => {
     const addDate = raw && Number.isFinite(Number(raw)) && Number(raw) > 0
       ? Number(raw) * 1000
       : Date.now();
-
     return { id: _uuid(), title, url, folder, path, addDate };
   }
 
@@ -161,7 +150,6 @@ const BookmarkParser = (() => {
 
   /* =========================================
      REBUILD FOLDER COUNTS
-     Called after parse() and after import.
   ========================================= */
 
   function rebuildCounts(tree, bookmarks) {
@@ -176,7 +164,7 @@ const BookmarkParser = (() => {
 
     bookmarks.forEach(({ path }) => {
       const parts = (path || "").split("/");
-      let   cur   = "";
+      let cur = "";
       parts.forEach(part => {
         cur = cur ? `${cur}/${part}` : part;
         const n = nodeMap.get(cur);
@@ -214,7 +202,6 @@ const BookmarkParser = (() => {
 
   /* =========================================
      DOMAIN LIST
-     Used by app.js showDomains() / renderDomainList()
   ========================================= */
 
   function getDomains(bookmarks) {
@@ -230,7 +217,6 @@ const BookmarkParser = (() => {
 
   /* =========================================
      DUPLICATE URL GROUPS
-     Used by app.js showDuplicates() / renderDuplicateGroups()
   ========================================= */
 
   function getDuplicateURLs(bookmarks) {
@@ -248,7 +234,6 @@ const BookmarkParser = (() => {
 
   /* =========================================
      SEARCH
-     Used by app.js renderBookmarks()
   ========================================= */
 
   function searchBookmarks(bookmarks, keyword) {

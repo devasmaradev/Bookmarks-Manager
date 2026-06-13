@@ -1,12 +1,3 @@
-/*
-=========================================
-  storage.js — Bookmark Manager
-  IndexedDB wrapper
-  Stores: bookmarks, meta (theme, lang,
-  folderTree)
-=========================================
-*/
-
 "use strict";
 
 const StorageManager = (() => {
@@ -44,9 +35,7 @@ const StorageManager = (() => {
           initPromise = null;
         };
 
-        db.onerror = e => {
-          console.error("[StorageManager] db error:", e.target.error);
-        };
+        db.onerror = e => console.error("[StorageManager] db error:", e.target.error);
 
         resolve(db);
       };
@@ -113,7 +102,6 @@ const StorageManager = (() => {
     _ensureDB();
     if (!Array.isArray(bookmarks)) throw new TypeError("Expected an array");
     bookmarks.forEach(_validateBookmark);
-
     const tx    = db.transaction(STORE_BOOKMARKS, "readwrite");
     const store = tx.objectStore(STORE_BOOKMARKS);
     store.clear();
@@ -174,7 +162,7 @@ const StorageManager = (() => {
   }
 
   /* =========================================
-     META  (theme, lang, folderTree, …)
+     META
   ========================================= */
 
   async function setMeta(key, value) {

@@ -1,15 +1,3 @@
-/*
-=========================================
-  tree.js — Bookmark Manager
-  Builds & manages the sidebar folder tree.
-  DOM classes must match style.css:
-  .folder-node, .folder-row, .folder-row-all,
-  .folder-children, .folder-chevron,
-  .folder-icon, .folder-label, .folder-count-badge
-  States: .active, .expanded, .collapsed
-=========================================
-*/
-
 "use strict";
 
 const FolderTree = (() => {
@@ -23,7 +11,6 @@ const FolderTree = (() => {
 
   /* =========================================
      INIT
-     Called by app.js bindEvents()
   ========================================= */
 
   function init(containerElement, callback, onStateChange) {
@@ -34,15 +21,12 @@ const FolderTree = (() => {
 
   /* =========================================
      RENDER
-     Called by app.js after import / loadSavedData
   ========================================= */
 
   function render(tree) {
     if (!_container) return;
 
     _container.innerHTML = "";
-
-    /* "All Bookmarks" root node */
     _container.appendChild(_buildAllNode());
 
     if (!tree?.children?.length) return;
@@ -61,12 +45,11 @@ const FolderTree = (() => {
   function _buildAllNode() {
     const row = document.createElement("div");
     row.className = "folder-row folder-row-all";
-    row.setAttribute("role",         "treeitem");
-    row.setAttribute("tabindex",     "0");
+    row.setAttribute("role", "treeitem");
+    row.setAttribute("tabindex", "0");
     row.setAttribute("aria-selected", _activePath === "ALL" ? "true" : "false");
     if (_activePath === "ALL") row.classList.add("active");
 
-    /* Spacer to align with chevron column */
     const spacer = document.createElement("span");
     spacer.className = "folder-chevron";
     spacer.setAttribute("aria-hidden", "true");
@@ -102,24 +85,19 @@ const FolderTree = (() => {
     const hasChildren = Boolean(node.children?.length);
     const isExpanded  = _expandedPaths.has(node.path);
 
-    /* Wrapper — role="treeitem" for ARIA tree */
     const wrapper = document.createElement("div");
     wrapper.className = `folder-node ${isExpanded ? "expanded" : "collapsed"}`;
     wrapper.dataset.path = node.path;
     wrapper.setAttribute("role", "treeitem");
-    if (hasChildren) {
-      wrapper.setAttribute("aria-expanded", String(isExpanded));
-    }
+    if (hasChildren) wrapper.setAttribute("aria-expanded", String(isExpanded));
 
-    /* Row */
     const row = document.createElement("div");
     row.className = "folder-row";
     row.dataset.path = node.path;
-    row.setAttribute("tabindex",      "0");
+    row.setAttribute("tabindex", "0");
     row.setAttribute("aria-selected", _activePath === node.path ? "true" : "false");
     if (_activePath === node.path) row.classList.add("active");
 
-    /* Chevron */
     const chevron = document.createElement("span");
     chevron.className = "folder-chevron";
     chevron.setAttribute("aria-hidden", "true");
@@ -135,7 +113,6 @@ const FolderTree = (() => {
       });
     }
 
-    /* Folder icon */
     const icon = document.createElement("span");
     icon.className = "folder-icon";
     icon.setAttribute("aria-hidden", "true");
@@ -150,13 +127,11 @@ const FolderTree = (() => {
           <polyline points="13 2 13 9 20 9"/>
         </svg>`;
 
-    /* Label */
     const label = document.createElement("span");
     label.className   = "folder-label";
     label.textContent = node.name;
     label.title       = node.name;
 
-    /* Count badge */
     const badge = document.createElement("span");
     badge.className   = "folder-count-badge";
     badge.textContent = (node.count || 0).toLocaleString();
@@ -164,16 +139,13 @@ const FolderTree = (() => {
 
     row.append(chevron, icon, label, badge);
 
-    /* Children container */
     const children = document.createElement("div");
     children.className = "folder-children";
     children.setAttribute("role", "group");
-
     if (hasChildren) {
       node.children.forEach(child => children.appendChild(_buildFolderNode(child)));
     }
 
-    /* Row events */
     row.addEventListener("click", () => _selectFolder(node.path));
     row.addEventListener("keydown", e => {
       switch (e.key) {
@@ -194,16 +166,14 @@ const FolderTree = (() => {
             _toggleNode(wrapper, node.path);
           }
           break;
-        case "ArrowDown": {
+        case "ArrowDown":
           e.preventDefault();
           _focusNext(row);
           break;
-        }
-        case "ArrowUp": {
+        case "ArrowUp":
           e.preventDefault();
           _focusPrev(row);
           break;
-        }
       }
     });
 
@@ -217,8 +187,8 @@ const FolderTree = (() => {
 
   function _toggleNode(wrapper, path) {
     const expanded = wrapper.classList.contains("expanded");
-    wrapper.classList.toggle("expanded",   !expanded);
-    wrapper.classList.toggle("collapsed",   expanded);
+    wrapper.classList.toggle("expanded",  !expanded);
+    wrapper.classList.toggle("collapsed",  expanded);
     if (wrapper.hasAttribute("aria-expanded")) {
       wrapper.setAttribute("aria-expanded", String(!expanded));
     }
@@ -309,7 +279,6 @@ const FolderTree = (() => {
 
   /* =========================================
      EXPAND / COLLAPSE ALL
-     Bound by app.js expandAllBtn / collapseAllBtn
   ========================================= */
 
   function expandAll() {
@@ -349,12 +318,10 @@ const FolderTree = (() => {
 
   /* =========================================
      PATH ACCESSORS
-     Used by app.js to sync tree with view state
   ========================================= */
 
   function setActivePath(path) {
     if (path === null) {
-      /* Clear all active states tanpa set path baru */
       _activePath = null;
       if (!_container) return;
       _container.querySelectorAll(".folder-row").forEach(r => {

@@ -1,31 +1,22 @@
-/*
-=========================================
-  app.js — Bookmark Manager
-  Main application controller.
-  Coordinates: I18n, StorageManager,
-  BookmarkParser, FolderTree
-=========================================
-*/
-
 "use strict";
 
 /* =========================================
    APPLICATION STATE
 ========================================= */
 
-let _bookmarks        = [];
-let _folderTree       = null;
-let _selectedBookmark = null;
-let _activeFolder     = "ALL";
-let _currentView      = "bookmarks"; /* "bookmarks" | "domains" | "duplicates" */
-let _detailsPanelOpen = false;
-let _toastTimer       = null;
-let _searchDebounce   = null;
-let _crudTarget       = null; /* bookmark being edited, or null for add */
-let _deleteTarget     = null; /* bookmark pending delete confirmation */
+let _bookmarks         = [];
+let _folderTree        = null;
+let _selectedBookmark  = null;
+let _activeFolder      = "ALL";
+let _currentView       = "bookmarks";
+let _detailsPanelOpen  = false;
+let _toastTimer        = null;
+let _searchDebounce    = null;
+let _crudTarget        = null;
+let _deleteTarget      = null;
 let _hasUnsavedChanges = false;
 let _previousFolder    = "ALL";
-let _activeDomain      = null;   /* domain aktif saat view = "domain-filter" */
+let _activeDomain      = null;
 
 /* =========================================
    BOOTSTRAP
@@ -63,12 +54,9 @@ function _el(id) {
 ========================================= */
 
 function _bindEvents() {
-
-  /* Import — topbar label + empty-state CTA */
   _el("bookmarkFile").addEventListener("change",    _handleImport);
   _el("bookmarkFileCta").addEventListener("change", _handleImport);
 
-  /* Search */
   const searchInput = _el("searchInput");
   const searchClear = _el("searchClear");
 
@@ -88,57 +76,41 @@ function _bindEvents() {
     searchInput.focus();
   });
 
-  /* Topbar actions */
-
   const btnExportHtml = _el("btnExportHtml");
-  if (btnExportHtml) {
-    btnExportHtml.addEventListener("click", _exportHTML);
-  }
+  if (btnExportHtml) btnExportHtml.addEventListener("click", _exportHTML);
 
-  _el("btnClearData").addEventListener("click", _requestClearData);
-  _el("btnTheme").addEventListener("click", _toggleTheme);
-  _el("btnLang").addEventListener("click", _toggleLang);
+  _el("btnClearData").addEventListener("click",   _requestClearData);
+  _el("btnTheme").addEventListener("click",       _toggleTheme);
+  _el("btnLang").addEventListener("click",        _toggleLang);
   _el("btnAddBookmark").addEventListener("click", () => _openCrudModal(null));
 
-  /* Unsaved banner dismiss */
   _el("unsavedBannerDismiss").addEventListener("click", () => {
     _el("unsavedBanner").hidden = true;
   });
 
-  /* Stat cards */
   const domainsCard    = _el("domainsCard");
   const duplicatesCard = _el("duplicatesCard");
 
-  domainsCard.addEventListener("click", () => {
-    if (!_bookmarks.length) return;
-    _showDomains();
-  });
-  duplicatesCard.addEventListener("click", () => {
-    if (!_bookmarks.length) return;
-    _showDuplicates();
-  });
+  domainsCard.addEventListener("click", () => { if (_bookmarks.length) _showDomains(); });
+  duplicatesCard.addEventListener("click", () => { if (_bookmarks.length) _showDuplicates(); });
 
   domainsCard.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") {
+    if ((e.key === "Enter" || e.key === " ") && _bookmarks.length) {
       e.preventDefault();
-      if (!_bookmarks.length) return;
       _showDomains();
     }
   });
   duplicatesCard.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") {
+    if ((e.key === "Enter" || e.key === " ") && _bookmarks.length) {
       e.preventDefault();
-      if (!_bookmarks.length) return;
       _showDuplicates();
     }
   });
 
-  /* View controls */
   _el("btnBackToBookmarks").addEventListener("click", _backToBookmarks);
-  _el("expandAllBtn").addEventListener("click",   () => FolderTree.expandAll());
-  _el("collapseAllBtn").addEventListener("click", () => FolderTree.collapseAll());
+  _el("expandAllBtn").addEventListener("click",       () => FolderTree.expandAll());
+  _el("collapseAllBtn").addEventListener("click",     () => FolderTree.collapseAll());
 
-  /* Mobile / responsive */
   _el("mobileMenuBtn").addEventListener("click", _toggleMobileSidebar);
   _el("mobileOverlay").addEventListener("click", () => {
     _closeMobileSidebar();
@@ -146,7 +118,6 @@ function _bindEvents() {
   });
   _el("closePanelBtn").addEventListener("click", _closeDetailsPanel);
 
-/* Confirm dialog */
   _el("dialogCancel").addEventListener("click", _hideDialog);
   _el("dialogConfirm").addEventListener("click", () => {
     if (_deleteTarget) {
@@ -159,25 +130,20 @@ function _bindEvents() {
       _executeClearData();
     }
   });
-
-  /* Dialog backdrop — click outside to close */
   _el("confirmDialog").addEventListener("click", e => {
     if (e.target === _el("confirmDialog")) _hideDialog();
   });
 
-  /* CRUD modal */
   _el("crudCancelBtn").addEventListener("click", _closeCrudModal);
   _el("crudSaveBtn").addEventListener("click",   _handleCrudSave);
   _el("crudModal").addEventListener("click", e => {
     if (e.target === _el("crudModal")) _closeCrudModal();
   });
 
-  /* Folder tree */
   FolderTree.init(_el("folderTree"), _onFolderSelected, _onTreeStateChange);
 
-  /* Persist scroll positions */
-  let _sidebarScrollTimer  = null;
-  let _contentScrollTimer  = null;
+  let _sidebarScrollTimer = null;
+  let _contentScrollTimer = null;
 
   _el("folderTree").addEventListener("scroll", () => {
     clearTimeout(_sidebarScrollTimer);
@@ -193,19 +159,17 @@ function _bindEvents() {
     }, 150);
   });
 
-  /* Global keyboard shortcuts */
   document.addEventListener("keydown", _handleKeyboard);
 }
 
 /* =========================================
    FOLDER SELECTION CALLBACK
-   Passed to FolderTree.init() as the callback.
 ========================================= */
 
 function _onFolderSelected(path) {
-  _activeFolder  = path;
-  _currentView   = "bookmarks";
-  _activeDomain  = null;
+  _activeFolder = path;
+  _currentView  = "bookmarks";
+  _activeDomain = null;
   _updateAddBookmarkBtn();
   _updateViewBadge(I18n.t("badge.bookmarks"));
   _el("btnBackToBookmarks").hidden = true;
@@ -221,18 +185,20 @@ function _onTreeStateChange(expandedPaths) {
 }
 
 function _updateAddBookmarkBtn() {
-  const btn = _el("btnAddBookmark");
+  const btn   = _el("btnAddBookmark");
   if (!btn) return;
   const isAll = _activeFolder === "ALL";
   btn.disabled = isAll;
-  btn.title    = isAll ? (I18n.getLang() === "id"
-    ? "Pilih folder terlebih dahulu untuk menambahkan bookmark"
-    : "Select a folder first to add a bookmark") : "";
+  btn.title    = isAll
+    ? (I18n.getLang() === "id"
+        ? "Pilih folder terlebih dahulu untuk menambahkan bookmark"
+        : "Select a folder first to add a bookmark")
+    : "";
 }
 
 function _updateStatCardState() {
-  const hasData       = _bookmarks.length > 0;
-  const domainsCard   = _el("domainsCard");
+  const hasData        = _bookmarks.length > 0;
+  const domainsCard    = _el("domainsCard");
   const duplicatesCard = _el("duplicatesCard");
 
   if (domainsCard) {
@@ -252,16 +218,14 @@ function _updateStatCardState() {
 ========================================= */
 
 function _handleKeyboard(e) {
-  /* Escape — close panels in priority order */
   if (e.key === "Escape") {
-    if (!_el("crudModal").hidden)          { _closeCrudModal(); return; }
-    if (!_el("confirmDialog").hidden)      { _hideDialog(); return; }
-    if (_detailsPanelOpen)                 { _closeDetailsPanel(); return; }
+    if (!_el("crudModal").hidden)     { _closeCrudModal();     return; }
+    if (!_el("confirmDialog").hidden) { _hideDialog();         return; }
+    if (_detailsPanelOpen)            { _closeDetailsPanel();  return; }
     _closeMobileSidebar();
     return;
   }
 
-  /* Ctrl/Cmd + F — focus search */
   if ((e.ctrlKey || e.metaKey) && e.key === "f") {
     e.preventDefault();
     const inp = _el("searchInput");
@@ -298,13 +262,10 @@ function _closeMobileSidebar() {
 
 /* =========================================
    DETAILS PANEL
-   Floating modal on viewports <= 1200px
-   (matches CSS @media max-width: 1200px)
 ========================================= */
 
 function _openDetailsPanel(bookmark) {
   _showBookmarkDetails(bookmark);
-
   if (window.innerWidth <= 1200) {
     _el("detailsPanel").classList.add("mobile-open");
     _el("mobileOverlay").classList.add("visible");
@@ -343,10 +304,6 @@ function _hideDialog() {
 
 /* =========================================
    UNSAVED CHANGES INDICATOR
-   _markUnsaved() — dipanggil setiap ada
-   mutasi: add, edit, delete.
-   _clearUnsaved() — dipanggil setelah export
-   atau clear.
 ========================================= */
 
 function _markUnsaved() {
@@ -387,7 +344,6 @@ function _applyUnsavedUI(hasUnsaved) {
 
 /* =========================================
    LOADING OVERLAY
-   #loadingOverlay visibility via [hidden] attr
 ========================================= */
 
 function _showLoading(visible, messageKey = "loading.default") {
@@ -401,8 +357,6 @@ function _showLoading(visible, messageKey = "loading.default") {
 
 /* =========================================
    TOAST
-   Manages a single toast at a time.
-   Types: "success" | "error" | "info"
 ========================================= */
 
 function showToast(message, type = "success") {
@@ -476,11 +430,11 @@ async function _handleImport(event) {
     _activeDomain     = null;
 
     await StorageManager.saveBookmarks(_bookmarks);
-    await StorageManager.setMeta("folderTree", _folderTree);
-    await StorageManager.setMeta("activeFolder", "ALL");
-    await StorageManager.setMeta("currentView", "bookmarks");
-    await StorageManager.setMeta("activeDomain", null);
-    await StorageManager.setMeta("previousFolder", "ALL");
+    await StorageManager.setMeta("folderTree",      _folderTree);
+    await StorageManager.setMeta("activeFolder",    "ALL");
+    await StorageManager.setMeta("currentView",     "bookmarks");
+    await StorageManager.setMeta("activeDomain",    null);
+    await StorageManager.setMeta("previousFolder",  "ALL");
 
     _updateStats();
     FolderTree.setActivePath("ALL");
@@ -504,12 +458,10 @@ async function _handleImport(event) {
 
 /* =========================================
    IMPORT BUTTON VISIBILITY
-   Topbar Import: hidden when no bookmarks
-   Empty-state CTA: shown when no bookmarks
 ========================================= */
 
 function _updateImportButtonVisibility() {
-  const hasData = _bookmarks.length > 0;
+  const hasData   = _bookmarks.length > 0;
   const topbarBtn = _el("topbarImportBtn");
   const labelSpan = topbarBtn?.querySelector(".btn-label");
 
@@ -542,20 +494,14 @@ async function _loadSavedData() {
   _folderTree = await StorageManager.getMeta("folderTree");
 
   if (!_folderTree) {
-    _folderTree = {
-      id:       _uuid(),
-      name:     "ROOT",
-      path:     "",
-      count:    0,
-      children: [],
-    };
+    _folderTree = { id: _uuid(), name: "ROOT", path: "", count: 0, children: [] };
   }
 
   const savedUnsaved = await StorageManager.getMeta("hasUnsaved");
   _hasUnsavedChanges = savedUnsaved === true;
   _applyUnsavedUI(_hasUnsavedChanges);
 
-  const savedFolder       = await StorageManager.getMeta("activeFolder");
+  const savedFolder        = await StorageManager.getMeta("activeFolder");
   const savedExpandedPaths = await StorageManager.getMeta("expandedPaths");
 
   if (savedFolder && savedFolder !== "ALL" && _bookmarks.length) {
@@ -573,27 +519,23 @@ async function _loadSavedData() {
     FolderTree.setExpandedPaths(savedExpandedPaths);
   }
 
-  const savedView          = await StorageManager.getMeta("currentView");
-  const savedActiveDomain  = await StorageManager.getMeta("activeDomain");
+  const savedView           = await StorageManager.getMeta("currentView");
+  const savedActiveDomain   = await StorageManager.getMeta("activeDomain");
   const savedPreviousFolder = await StorageManager.getMeta("previousFolder");
-  const savedSidebarScroll = await StorageManager.getMeta("sidebarScroll");
-  const savedContentScroll = await StorageManager.getMeta("contentScroll");
+  const savedSidebarScroll  = await StorageManager.getMeta("sidebarScroll");
+  const savedContentScroll  = await StorageManager.getMeta("contentScroll");
 
-  if (savedPreviousFolder) {
-    _previousFolder = savedPreviousFolder;
-  }
+  if (savedPreviousFolder) _previousFolder = savedPreviousFolder;
 
   _updateStats();
   FolderTree.render(_folderTree);
 
-  /* Restore view state */
   if (_bookmarks.length && savedView && savedView !== "bookmarks") {
     if (savedView === "domains") {
       _showDomains();
     } else if (savedView === "domain-filter" && savedActiveDomain) {
       _activeDomain = savedActiveDomain;
       _showDomains();
-      /* Delay render agar domain list muncul dulu sebelum filter */
       requestAnimationFrame(() => _filterByDomain(savedActiveDomain));
     } else if (savedView === "duplicates") {
       _showDuplicates();
@@ -608,14 +550,9 @@ async function _loadSavedData() {
 
   _updateImportButtonVisibility();
 
-  /* Restore scroll positions setelah render selesai */
   requestAnimationFrame(() => {
-    if (savedSidebarScroll) {
-      _el("folderTree").scrollTop = savedSidebarScroll;
-    }
-    if (savedContentScroll) {
-      _el("bookmarkContainer").scrollTop = savedContentScroll;
-    }
+    if (savedSidebarScroll) _el("folderTree").scrollTop       = savedSidebarScroll;
+    if (savedContentScroll) _el("bookmarkContainer").scrollTop = savedContentScroll;
   });
 }
 
@@ -631,7 +568,7 @@ function _updateStats() {
 }
 
 /* =========================================
-   RENDER BOOKMARKS (main view)
+   RENDER BOOKMARKS
 ========================================= */
 
 function _renderBookmarks() {
@@ -665,7 +602,7 @@ function _backToBookmarks() {
   FolderTree.setActivePath(_activeFolder);
   _renderBookmarks();
   StorageManager.setMeta("activeFolder", _activeFolder).catch(() => {});
-  StorageManager.setMeta("currentView", "bookmarks").catch(() => {});
+  StorageManager.setMeta("currentView",  "bookmarks").catch(() => {});
   StorageManager.setMeta("activeDomain", null).catch(() => {});
 }
 
@@ -682,7 +619,6 @@ function _renderBookmarkList(items) {
   container.innerHTML = "";
 
   if (!items.length && !_bookmarks.length) {
-    /* Truly empty — show full empty state with import CTA */
     const emptyDiv = document.createElement("div");
     emptyDiv.className = "empty-state large";
     emptyDiv.innerHTML = `
@@ -709,7 +645,6 @@ function _renderBookmarkList(items) {
           id="bookmarkFileCtaDynamic">
       </label>
     `;
-    /* Bind the dynamically created file input */
     const dynInput = emptyDiv.querySelector("#bookmarkFileCtaDynamic");
     if (dynInput) dynInput.addEventListener("change", _handleImport);
     container.appendChild(emptyDiv);
@@ -732,7 +667,6 @@ function _renderBookmarkList(items) {
 
 /* =========================================
    BOOKMARK ITEM NODE
-   Uses <template id="bookmarkTemplate">
 ========================================= */
 
 function _createBookmarkNode(bookmark) {
@@ -743,7 +677,6 @@ function _createBookmarkNode(bookmark) {
   const faviconFb  = clone.querySelector(".bookmark-favicon-fallback");
   const domain     = BookmarkParser.getDomain(bookmark.url);
 
-  /* Favicon */
   if (domain) {
     faviconImg.src = _faviconURL(domain);
     faviconImg.alt = domain;
@@ -756,11 +689,9 @@ function _createBookmarkNode(bookmark) {
     faviconFb.style.display  = "flex";
   }
 
-  /* Text */
   clone.querySelector(".bookmark-title").textContent = bookmark.title;
   clone.querySelector(".bookmark-url").textContent   = bookmark.url;
 
-  /* Chips */
   const domainChip = clone.querySelector(".chip-domain");
   const folderChip = clone.querySelector(".chip-folder");
 
@@ -779,28 +710,23 @@ function _createBookmarkNode(bookmark) {
 
   root.setAttribute("aria-label", bookmark.title);
 
-  /* Open in new tab */
   clone.querySelector(".bookmark-open-btn").addEventListener("click", e => {
     e.stopPropagation();
     _openURL(bookmark.url);
   });
 
-  /* Edit button */
   clone.querySelector(".bookmark-edit-btn").addEventListener("click", e => {
     e.stopPropagation();
     _openCrudModal(bookmark);
   });
 
-  /* Delete button */
   clone.querySelector(".bookmark-delete-btn").addEventListener("click", e => {
     e.stopPropagation();
     _deleteBookmark(bookmark);
   });
 
-  /* Select → open details */
   root.addEventListener("click", () => {
-    document.querySelectorAll(".bookmark-item.active")
-      .forEach(n => n.classList.remove("active"));
+    document.querySelectorAll(".bookmark-item.active").forEach(n => n.classList.remove("active"));
     root.classList.add("active");
     _openDetailsPanel(bookmark);
   });
@@ -814,8 +740,6 @@ function _createBookmarkNode(bookmark) {
 
 /* =========================================
    BOOKMARK DETAILS PANEL
-   Content rendered directly as innerHTML.
-   All class names match style.css.
 ========================================= */
 
 function _showBookmarkDetails(bookmark) {
@@ -919,7 +843,6 @@ function _showBookmarkDetails(bookmark) {
     </div>
   `;
 
-  /* Favicon fallback */
   const fImg = panel.querySelector("#detailFaviconImg");
   const fFb  = panel.querySelector("#detailFaviconFb");
   if (fImg) {
@@ -929,10 +852,7 @@ function _showBookmarkDetails(bookmark) {
     };
   }
 
-  /* Actions */
-  panel.querySelector("#detailOpenBtn").addEventListener("click",
-    () => _openURL(bookmark.url)
-  );
+  panel.querySelector("#detailOpenBtn").addEventListener("click", () => _openURL(bookmark.url));
 
   panel.querySelector("#detailCopyBtn").addEventListener("click", async () => {
     try {
@@ -943,43 +863,38 @@ function _showBookmarkDetails(bookmark) {
     }
   });
 
-  panel.querySelector("#detailEditBtn").addEventListener("click",
-    () => _openCrudModal(bookmark)
-  );
+  panel.querySelector("#detailEditBtn").addEventListener("click", () => _openCrudModal(bookmark));
 }
 
 /* =========================================
    CRUD MODAL
-   null = Add mode, bookmark object = Edit mode
 ========================================= */
 
 function _openCrudModal(bookmark) {
   _crudTarget = bookmark;
 
   const isEdit = bookmark !== null;
-  _el("crudModalTitle").textContent = isEdit
-    ? I18n.t("action.edit")
-    : I18n.t("action.addBookmark");
+  _el("crudModalTitle").textContent = isEdit ? I18n.t("action.edit") : I18n.t("action.addBookmark");
 
   const defaultPath = (!isEdit && _activeFolder !== "ALL") ? _activeFolder : "";
 
   _el("crudInputTitle").value = isEdit ? (bookmark.title || "") : "";
   _el("crudInputUrl").value   = isEdit ? (bookmark.url   || "") : "";
 
-  const pathInput = _el("crudInputPath");
+  const pathInput    = _el("crudInputPath");
   pathInput.value    = isEdit ? (bookmark.path || "") : defaultPath;
   pathInput.readOnly = true;
 
   _el("crudSaveBtn").textContent   = I18n.t("action.save");
   _el("crudCancelBtn").textContent = I18n.t("action.cancel");
 
-  _el("crudModal").hidden = false;
+  _el("crudModal").hidden      = false;
   document.body.style.overflow = "hidden";
   setTimeout(() => _el("crudInputTitle").focus(), 50);
 }
 
 function _closeCrudModal() {
-  _el("crudModal").hidden = true;
+  _el("crudModal").hidden      = true;
   document.body.style.overflow = "";
   _crudTarget = null;
 }
@@ -989,30 +904,17 @@ async function _handleCrudSave() {
   const url   = _el("crudInputUrl").value.trim();
   const path  = _el("crudInputPath").value.trim();
 
-  if (!title) {
-    showToast(I18n.t("toast.validationTitle"), "error");
-    return;
-  }
-
-  if (!url) {
-    showToast(I18n.t("toast.validationUrl"), "error");
-    return;
-  }
-
-  if (!_isSafeURL(url)) {
-    showToast(I18n.t("toast.validationUrlInvalid"), "error");
-    return;
-  }
+  if (!title) { showToast(I18n.t("toast.validationTitle"),      "error"); return; }
+  if (!url)   { showToast(I18n.t("toast.validationUrl"),        "error"); return; }
+  if (!_isSafeURL(url)) { showToast(I18n.t("toast.validationUrlInvalid"), "error"); return; }
 
   try {
     if (_crudTarget) {
-      /* UPDATE */
       const updated = { ..._crudTarget, title, url, path };
       await StorageManager.updateBookmark(updated);
       const idx = _bookmarks.findIndex(b => b.id === _crudTarget.id);
       if (idx !== -1) _bookmarks[idx] = updated;
 
-      /* Rebuild folder counts & re-persist tree */
       BookmarkParser.rebuildCounts(_folderTree, _bookmarks);
       await StorageManager.setMeta("folderTree", _folderTree);
       FolderTree.render(_folderTree);
@@ -1020,7 +922,6 @@ async function _handleCrudSave() {
       _markUnsaved();
       showToast(I18n.t("toast.saved"));
     } else {
-      /* CREATE */
       const finalPath = path || "Uncategorized";
       const folder    = finalPath.split("/").pop();
       const newBm = {
@@ -1034,7 +935,6 @@ async function _handleCrudSave() {
       await StorageManager.addBookmark(newBm);
       _bookmarks.push(newBm);
 
-      /* Rebuild folder counts & re-persist tree */
       BookmarkParser.rebuildCounts(_folderTree, _bookmarks);
       await StorageManager.setMeta("folderTree", _folderTree);
       FolderTree.render(_folderTree);
@@ -1048,7 +948,6 @@ async function _handleCrudSave() {
     _updateStats();
     _renderBookmarks();
 
-    /* Update details panel if it was showing the edited bookmark */
     if (prevTarget && _selectedBookmark?.id === prevTarget.id) {
       const updated = _bookmarks.find(b => b.id === prevTarget.id);
       if (updated) _showBookmarkDetails(updated);
@@ -1124,8 +1023,8 @@ function _showDomains() {
   _el("btnBackToBookmarks").hidden     = false;
   _updateViewBadge(I18n.t("badge.domains"));
 
-  StorageManager.setMeta("currentView", "domains").catch(() => {});
-  StorageManager.setMeta("activeDomain", null).catch(() => {});
+  StorageManager.setMeta("currentView",    "domains").catch(() => {});
+  StorageManager.setMeta("activeDomain",   null).catch(() => {});
   StorageManager.setMeta("previousFolder", _previousFolder).catch(() => {});
 
   _renderDomainList(domains);
@@ -1177,7 +1076,7 @@ function _filterByDomain(domain) {
   _el("btnBackToBookmarks").hidden     = false;
   _updateViewBadge(I18n.t("badge.domain"));
 
-  StorageManager.setMeta("currentView", "domain-filter").catch(() => {});
+  StorageManager.setMeta("currentView",  "domain-filter").catch(() => {});
   StorageManager.setMeta("activeDomain", domain).catch(() => {});
 
   _renderBookmarkList(filtered);
@@ -1201,7 +1100,7 @@ function _showDuplicates() {
   _el("btnBackToBookmarks").hidden     = false;
   _updateViewBadge(I18n.t("badge.duplicates"));
 
-  StorageManager.setMeta("currentView", "duplicates").catch(() => {});
+  StorageManager.setMeta("currentView",    "duplicates").catch(() => {});
   StorageManager.setMeta("previousFolder", _previousFolder).catch(() => {});
 
   _renderDuplicateGroups(duplicates);
@@ -1226,11 +1125,9 @@ function _renderDuplicateGroups(groups) {
     const firstItem = group.items[0];
     let expanded    = false;
 
-    /* Group wrapper */
     const wrapper = document.createElement("div");
     wrapper.className = "dup-group collapsed";
 
-    /* Header */
     const header = document.createElement("div");
     header.className = "dup-header";
     header.setAttribute("role",         "button");
@@ -1258,7 +1155,6 @@ function _renderDuplicateGroups(groups) {
 
     header.append(toggleIcon, info, badge);
 
-    /* Items */
     const itemsWrap = document.createElement("div");
     itemsWrap.className = "dup-items";
 
@@ -1299,8 +1195,7 @@ function _renderDuplicateGroups(groups) {
 
       row.addEventListener("click", e => {
         e.stopPropagation();
-        document.querySelectorAll(".dup-item.active")
-          .forEach(r => r.classList.remove("active"));
+        document.querySelectorAll(".dup-item.active").forEach(r => r.classList.remove("active"));
         row.classList.add("active");
         _openDetailsPanel(item);
       });
@@ -1312,7 +1207,6 @@ function _renderDuplicateGroups(groups) {
       itemsWrap.appendChild(row);
     });
 
-    /* Toggle expand/collapse */
     function _toggle() {
       expanded = !expanded;
       wrapper.classList.toggle("expanded",   expanded);
@@ -1333,40 +1227,7 @@ function _renderDuplicateGroups(groups) {
 }
 
 /* =========================================
-   EXPORT JSON
-========================================= */
-
-function _exportJSON() {
-  if (!_bookmarks.length) {
-    showToast(I18n.t("empty.noBookmarks"), "info");
-    return;
-  }
-
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    version:    1,
-    bookmarks:  _bookmarks,
-    folderTree: _folderTree,
-  };
-
-  const blob = new Blob(
-    [JSON.stringify(payload, null, 2)],
-    { type: "application/json" }
-  );
-  const url  = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href     = url;
-  link.download = `bookmarks_${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  _clearUnsaved();
-  showToast(I18n.t("toast.exported"));
-}
-
-/* =========================================
-   EXPORT HTML (Netscape Bookmark Format)
-   Compatible for re-import to browsers.
+   EXPORT HTML
 ========================================= */
 
 function _exportHTML() {
@@ -1375,7 +1236,6 @@ function _exportHTML() {
     return;
   }
 
-  /* Group bookmarks by path/folder */
   const folderMap = new Map();
   _bookmarks.forEach(b => {
     const key = b.path || "Uncategorized";
@@ -1393,28 +1253,23 @@ function _exportHTML() {
 <DL><p>
 `;
 
-  /* Build folder tree structure from paths */
   const rendered = new Set();
 
   function _renderFolder(path, indent) {
-    const pad = "    ".repeat(indent);
+    const pad  = "    ".repeat(indent);
     const name = path.split("/").pop();
     let out = `${pad}<DT><H3>${_escapeHTML(name)}</H3>\n${pad}<DL><p>\n`;
 
-    /* Find subfolders */
     folderMap.forEach((bms, key) => {
       if (key !== path && key.startsWith(path + "/")) {
         const rest = key.slice(path.length + 1);
-        if (!rest.includes("/")) {
-          if (!rendered.has(key)) {
-            rendered.add(key);
-            out += _renderFolder(key, indent + 1);
-          }
+        if (!rest.includes("/") && !rendered.has(key)) {
+          rendered.add(key);
+          out += _renderFolder(key, indent + 1);
         }
       }
     });
 
-    /* Bookmarks in this folder */
     const bms = folderMap.get(path) || [];
     bms.forEach(b => {
       const addDate = Math.floor((b.addDate || Date.now()) / 1000);
@@ -1425,17 +1280,13 @@ function _exportHTML() {
     return out;
   }
 
-  /* Render top-level folders first */
   folderMap.forEach((bms, path) => {
-    if (!path.includes("/") && path !== "Uncategorized") {
-      if (!rendered.has(path)) {
-        rendered.add(path);
-        html += _renderFolder(path, 1);
-      }
+    if (!path.includes("/") && path !== "Uncategorized" && !rendered.has(path)) {
+      rendered.add(path);
+      html += _renderFolder(path, 1);
     }
   });
 
-  /* Render Uncategorized */
   if (folderMap.has("Uncategorized")) {
     folderMap.get("Uncategorized").forEach(b => {
       const addDate = Math.floor((b.addDate || Date.now()) / 1000);
@@ -1498,7 +1349,6 @@ async function _executeClearData() {
   _renderBookmarks();
   _updateImportButtonVisibility();
 
-  /* Reset details panel */
   _el("bookmarkDetails").innerHTML = `
     <div class="empty-state">
       <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1515,16 +1365,11 @@ async function _executeClearData() {
 
 /* =========================================
    THEME
-   data-theme="light"|"dark" on <html>
-   Persisted via StorageManager.setMeta("theme")
 ========================================= */
 
 async function _applyTheme() {
   const saved = await StorageManager.getMeta("theme");
-  document.documentElement.setAttribute(
-    "data-theme",
-    saved === "dark" ? "dark" : "light"
-  );
+  document.documentElement.setAttribute("data-theme", saved === "dark" ? "dark" : "light");
   _updateThemeButton();
 }
 
@@ -1564,7 +1409,6 @@ function _updateLangButton() {
 }
 
 function _reapplyDynamicText() {
-  /* Re-render active view with updated translations */
   if      (_currentView === "bookmarks")  _renderBookmarks();
   else if (_currentView === "domains")    _showDomains();
   else if (_currentView === "duplicates") _showDuplicates();
@@ -1572,14 +1416,12 @@ function _reapplyDynamicText() {
   _updateThemeButton();
   _updateImportButtonVisibility();
 
-  /* Update "All Bookmarks" label in the already-rendered tree */
   const allLabel = document.querySelector(".folder-row-all .folder-label");
   if (allLabel) allLabel.textContent = I18n.t("sidebar.allBookmarks");
 }
 
 /* =========================================
    EMPTY STATE BUILDER
-   iconKey: "search" | "globe" | "check"
 ========================================= */
 
 const _emptyIcons = {
